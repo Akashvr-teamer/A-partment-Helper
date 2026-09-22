@@ -123,7 +123,9 @@ public class LoginFrame extends JFrame {
                 JOptionPane.showMessageDialog(this,"Login Successful!");
 
                 if(table.equals("residents")){
-                    new ResidentDashboard();
+                    int id = rs.getInt("resident_id");
+                    String name = rs.getString("full_name");
+                    new ResidentDashboard(id, name);
                 }else{
                     new WorkerDashboard();
                 }
