@@ -1,0 +1,46 @@
+package view;
+
+import database.DBConnection;
+import javax.swing.*;
+import java.awt.*;
+import java.sql.*;
+
+public class LoginFrame extends JFrame {
+    private final JTextField emailField = new JTextField();
+    private final JPasswordField passwordField = new JPasswordField();
+    private final JRadioButton residentBtn = new JRadioButton("Resident", true);
+    private final JRadioButton workerBtn = new JRadioButton("Worker");
+    private static final Color COFFEE = new Color(55, 36, 27), AMBER = new Color(190, 124, 58), CREAM = new Color(250, 245, 235);
+
+    public LoginFrame() {
+        setTitle("A-partment Helper | Login"); setSize(440, 560); setLocationRelativeTo(null); setDefaultCloseOperation(EXIT_ON_CLOSE); setResizable(false);
+        JPanel panel = new JPanel(null); panel.setBackground(COFFEE); setContentPane(panel);
+        JLabel title = new JLabel("WELCOME BACK", SwingConstants.CENTER); title.setBounds(35, 35, 360, 40); title.setForeground(CREAM); title.setFont(new Font("SansSerif", Font.BOLD, 25)); panel.add(title);
+        JLabel subtitle = new JLabel("Sign in to A-partment Helper", SwingConstants.CENTER); subtitle.setBounds(35, 75, 360, 24); subtitle.setForeground(new Color(220, 195, 165)); panel.add(subtitle);
+        addLabel(panel, "Email address", 50, 130); emailField.setBounds(50, 155, 330, 38); panel.add(emailField);
+        addLabel(panel, "Password", 50, 210); passwordField.setBounds(50, 235, 330, 38); panel.add(passwordField);
+        ButtonGroup group = new ButtonGroup(); group.add(residentBtn); group.add(workerBtn);
+        styleRadio(residentBtn); styleRadio(workerBtn); residentBtn.setBounds(75, 295, 120, 30); workerBtn.setBounds(225, 295, 100, 30); panel.add(residentBtn); panel.add(workerBtn);
+        JButton login = button("SIGN IN"); login.setBounds(50, 355, 330, 45); panel.add(login); login.addActionListener(e -> authenticate());
+        JButton back = new JButton("Back to home"); back.setBounds(125, 425, 180, 32); back.setForeground(CREAM); back.setContentAreaFilled(false); back.setBorderPainted(false); panel.add(back);
+        back.addActionListener(e -> { new WelcomeFrame(); dispose(); });
+        getRootPane().setDefaultButton(login); setVisible(true);
+    }
+    private void authenticate() {
+        String email = emailField.getText().trim().toLowerCase(); String password = new String(passwordField.getPassword());
+        if (email.isEmpty() || password.isEmpty()) { JOptionPane.showMessageDialog(this, "Enter both email and password."); return; }
+        boolean resident = residentBtn.isSelected(); String table = resident ? "residents" : "workers"; String idCol = resident ? "resident_id" : "worker_id";
+        String sql = "SELECT " + idCol + ", full_name, password FROM \"A-partment\"." + table + " WHERE lower(email)=?";
+        try (Connection con = DBConnection.getConnection(); PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, email); try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next() || !password.equals(rs.getString("password"))) { JOptionPane.showMessageDialog(this, "Invalid email or password."); return; }
+                int id = rs.getInt(idCol); String name = rs.getString("full_name");
+                if (resident) new ResidentDashboard(id, name); else new WorkerDashboard(id, name); dispose();
+            }
+        } catch (Exception ex) { showDbError(ex); }
+    }
+    static void showDbError(Exception ex) { ex.printStackTrace(); JOptionPane.showMessageDialog(null, "Could not complete the database request.\n" + ex.getMessage(), "Database error", JOptionPane.ERROR_MESSAGE); }
+    static JButton button(String text) { JButton b = new JButton(text); b.setBackground(AMBER); b.setForeground(Color.WHITE); b.setFont(new Font("SansSerif", Font.BOLD, 14)); b.setFocusPainted(false); b.setBorderPainted(false); b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)); return b; }
+    private static void addLabel(JPanel p, String s, int x, int y) { JLabel l = new JLabel(s); l.setBounds(x,y,300,20); l.setForeground(CREAM); l.setFont(new Font("SansSerif",Font.BOLD,13)); p.add(l); }
+    private static void styleRadio(JRadioButton b) { b.setOpaque(false); b.setForeground(CREAM); b.setFocusPainted(false); }
+}
