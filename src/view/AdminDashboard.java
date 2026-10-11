@@ -129,31 +129,33 @@ public class AdminDashboard extends JFrame {
         sidebar.add(logoSub);
 
         JButton overviewBtn = createSidebarButton("Overview", getNavIcon("OVERVIEW"));
-        overviewBtn.setBounds(15, 100, 190, 42);
+        overviewBtn.setBounds(20, 100, 180, 42);
         overviewBtn.addActionListener(e -> showView("OVERVIEW"));
         sidebar.add(overviewBtn);
 
         JButton complaintsBtn = createSidebarButton("Complaints", getNavIcon("COMPLAINTS"));
-        complaintsBtn.setBounds(15, 152, 190, 42);
+        complaintsBtn.setBounds(20, 152, 180, 42);
         complaintsBtn.addActionListener(e -> showView("COMPLAINTS"));
         sidebar.add(complaintsBtn);
 
         JButton billingBtn = createSidebarButton("Billing & Dues", getNavIcon("PAYMENTS"));
-        billingBtn.setBounds(15, 204, 190, 42);
+        billingBtn.setBounds(20, 204, 180, 42);
         billingBtn.addActionListener(e -> showView("BILLING"));
         sidebar.add(billingBtn);
 
         JButton logoutBtn = new JButton("Logout");
-        logoutBtn.setBounds(15, 650, 190, 40);
+        logoutBtn.setBounds(20, 650, 180, 40);
         logoutBtn.setIcon(getNavIcon("LOGOUT"));
         logoutBtn.setIconTextGap(14);
-        logoutBtn.setMargin(new Insets(0, 16, 0, 10));
         logoutBtn.setHorizontalAlignment(SwingConstants.LEFT);
         logoutBtn.setBackground(new Color(95, 55, 45));
         logoutBtn.setForeground(CREAM);
         logoutBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
         logoutBtn.setFocusPainted(false);
-        logoutBtn.setBorder(BorderFactory.createLineBorder(new Color(135, 75, 60), 1));
+        logoutBtn.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(135, 75, 60), 1),
+                BorderFactory.createEmptyBorder(0, 16, 0, 10)
+        ));
         logoutBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         logoutBtn.addActionListener(e -> {
             new WelcomeFrame();
@@ -969,13 +971,15 @@ public class AdminDashboard extends JFrame {
         JButton b = new JButton(text);
         b.setIcon(icon);
         b.setIconTextGap(14);
-        b.setMargin(new Insets(0, 16, 0, 10));
         b.setBackground(new Color(68, 46, 35));
         b.setForeground(CREAM);
         b.setFont(new Font("Segoe UI", Font.BOLD, 13));
         b.setFocusPainted(false);
         b.setHorizontalAlignment(SwingConstants.LEFT);
-        b.setBorder(BorderFactory.createLineBorder(new Color(98, 70, 54), 1));
+        b.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(98, 70, 54), 1),
+                BorderFactory.createEmptyBorder(0, 16, 0, 10)
+        ));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return b;
     }
