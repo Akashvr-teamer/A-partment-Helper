@@ -29,7 +29,6 @@ A Java Swing + PostgreSQL/JDBC desktop application for resident, visitor, worker
    - Worker: `worker@example.com` / `1234`
 4. Change the demo passwords before using this with real people. The simple login currently compares the `password` column directly to keep the project compatible with the existing sample schema. This is for a classroom demo only, not production authentication.
 
-> Do not run old scripts that start with `DROP TABLE` or `DROP DATABASE` unless you deliberately want to delete data. `sql/main.sql` is the legacy MySQL script; this project uses PostgreSQL, so use `setup_postgres.sql` instead.
 
 ## 2. Configure the database connection
 

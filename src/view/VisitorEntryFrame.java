@@ -1,16 +1,224 @@
 package view;
 
-import database.DBConnection; import util.CodeGenerator;
-import javax.swing.*; import java.awt.*; import java.sql.*; import java.time.LocalDateTime;
+import database.DBConnection;
+import util.CodeGenerator;
+import javax.swing.*;
+import java.awt.*;
+import java.sql.*;
 
 public class VisitorEntryFrame extends JFrame {
- private final JTextField code=new JTextField(); private static final Color COFFEE=new Color(55,36,27),CREAM=new Color(250,245,235),AMBER=new Color(190,124,58);
- public VisitorEntryFrame(){setTitle("Visitor Gate Desk");setSize(460,470);setLocationRelativeTo(null);setDefaultCloseOperation(EXIT_ON_CLOSE);JPanel p=new JPanel(null);p.setBackground(COFFEE);setContentPane(p);JLabel t=new JLabel("VISITOR GATE DESK",SwingConstants.CENTER);t.setBounds(25,35,400,40);t.setForeground(CREAM);t.setFont(new Font("Serif",Font.BOLD,26));p.add(t);JLabel sub=new JLabel("Enter the pass code to record entry or exit",SwingConstants.CENTER);sub.setBounds(25,85,400,25);sub.setForeground(new Color(220,195,165));p.add(sub);JLabel l=new JLabel("Access pass code");l.setBounds(45,145,350,22);l.setForeground(CREAM);p.add(l);code.setBounds(45,173,350,45);code.setHorizontalAlignment(JTextField.CENTER);code.setFont(new Font("Monospaced",Font.BOLD,20));p.add(code);JButton in=LoginFrame.button("CONFIRM ENTRY");in.setBounds(45,245,350,43);p.add(in);JButton out=new JButton("MARK EXIT");out.setBounds(45,305,350,40);out.setBackground(new Color(130,76,55));out.setForeground(Color.WHITE);out.setFocusPainted(false);p.add(out);JButton back=new JButton("Back to home");back.setBounds(130,365,180,30);back.setForeground(CREAM);back.setContentAreaFilled(false);back.setBorderPainted(false);p.add(back);in.addActionListener(e->process(true));out.addActionListener(e->process(false));back.addActionListener(e->{new WelcomeFrame();dispose();});setVisible(true);}
- private void process(boolean entering){String raw=code.getText().trim();if(raw.isEmpty()){JOptionPane.showMessageDialog(this,"Enter the access code first.");return;}String hash=CodeGenerator.sha256(raw);String select="SELECT visitor_id,visitor_name,status,has_vehicle,valid_from,valid_until,parking_slot FROM \"A-partment\".visitors WHERE access_hash=? FOR UPDATE";
- try(Connection con=DBConnection.getConnection()){con.setAutoCommit(false);try(PreparedStatement ps=con.prepareStatement(select)){ps.setString(1,hash);try(ResultSet rs=ps.executeQuery()){if(!rs.next()){con.rollback();JOptionPane.showMessageDialog(this,"Invalid pass code.");return;}int id=rs.getInt("visitor_id");String name=rs.getString("visitor_name"),status=rs.getString("status"),slot=rs.getString("parking_slot");boolean car=rs.getBoolean("has_vehicle");Timestamp from=rs.getTimestamp("valid_from"),until=rs.getTimestamp("valid_until");Timestamp now=Timestamp.valueOf(LocalDateTime.now());
- if(entering){if(!"PENDING".equalsIgnoreCase(status)){con.rollback();JOptionPane.showMessageDialog(this,"This pass cannot be used for entry. Current status: "+status);return;}if(now.before(from)){con.rollback();JOptionPane.showMessageDialog(this,"This pass is not valid yet. Valid from: "+from);return;}if(now.after(until)){try(PreparedStatement u=con.prepareStatement("UPDATE \"A-partment\".visitors SET status='EXPIRED' WHERE visitor_id=?")){u.setInt(1,id);u.executeUpdate();}con.commit();JOptionPane.showMessageDialog(this,"This pass has expired.");return;}
- if(car){String park="SELECT parking_id,slot_number FROM \"A-partment\".parking WHERE parking_type='VISITOR' AND status='AVAILABLE' ORDER BY slot_number FOR UPDATE SKIP LOCKED LIMIT 1";try(PreparedStatement q=con.prepareStatement(park);ResultSet pr=q.executeQuery()){if(!pr.next()){con.rollback();JOptionPane.showMessageDialog(this,"No visitor parking slot is available. Please ask the resident to arrange parking.");return;}int pid=pr.getInt("parking_id");slot=pr.getString("slot_number");try(PreparedStatement u=con.prepareStatement("UPDATE \"A-partment\".parking SET status='OCCUPIED',visitor_id=? WHERE parking_id=?")){u.setInt(1,id);u.setInt(2,pid);u.executeUpdate();}try(PreparedStatement u=con.prepareStatement("UPDATE \"A-partment\".visitors SET parking_slot=? WHERE visitor_id=?")){u.setString(1,slot);u.setInt(2,id);u.executeUpdate();}}}
- try(PreparedStatement u=con.prepareStatement("UPDATE \"A-partment\".visitors SET status='ENTERED',entry_time=CURRENT_TIMESTAMP WHERE visitor_id=?")){u.setInt(1,id);u.executeUpdate();}con.commit();JOptionPane.showMessageDialog(this,"Entry confirmed. Welcome, "+name+"!"+(slot!=null&&!slot.isBlank()?"\nVisitor parking: "+slot:""));code.setText("");
- }else{if(!"ENTERED".equalsIgnoreCase(status)){con.rollback();JOptionPane.showMessageDialog(this,"Only a visitor marked ENTERED can check out. Current status: "+status);return;}try(PreparedStatement u=con.prepareStatement("UPDATE \"A-partment\".visitors SET status='EXITED',exit_time=CURRENT_TIMESTAMP WHERE visitor_id=?")){u.setInt(1,id);u.executeUpdate();}if(slot!=null&&!slot.isBlank()){try(PreparedStatement u=con.prepareStatement("UPDATE \"A-partment\".parking SET status='AVAILABLE',visitor_id=NULL WHERE slot_number=? AND parking_type='VISITOR'")){u.setString(1,slot);u.executeUpdate();}}con.commit();JOptionPane.showMessageDialog(this,"Exit confirmed. Goodbye, "+name+"!"+(slot!=null&&!slot.isBlank()?"\nParking slot "+slot+" is now available.":""));code.setText("");}
- }}catch(Exception e){con.rollback();throw e;}}catch(Exception ex){LoginFrame.showDbError(ex);}}
+    private final JTextField codeField = new JTextField();
+
+    private static final Color COFFEE = new Color(55, 36, 27);
+    private static final Color CREAM = new Color(250, 245, 235);
+
+    public VisitorEntryFrame() {
+        setTitle("Visitor Gate Desk");
+        setSize(460, 470);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+
+        JPanel panel = new JPanel(null);
+        panel.setBackground(COFFEE);
+        setContentPane(panel);
+
+        JLabel title = new JLabel("VISITOR GATE DESK", SwingConstants.CENTER);
+        title.setBounds(25, 35, 400, 40);
+        title.setForeground(CREAM);
+        title.setFont(new Font("Serif", Font.BOLD, 26));
+        panel.add(title);
+
+        JLabel sub = new JLabel("Enter the pass code to record entry or exit", SwingConstants.CENTER);
+        sub.setBounds(25, 85, 400, 25);
+        sub.setForeground(new Color(220, 195, 165));
+        panel.add(sub);
+
+        JLabel label = new JLabel("Access pass code");
+        label.setBounds(45, 145, 350, 22);
+        label.setForeground(CREAM);
+        panel.add(label);
+
+        codeField.setBounds(45, 173, 350, 45);
+        codeField.setHorizontalAlignment(JTextField.CENTER);
+        codeField.setFont(new Font("Monospaced", Font.BOLD, 20));
+        panel.add(codeField);
+
+        JButton entryBtn = LoginFrame.button("CONFIRM ENTRY");
+        entryBtn.setBounds(45, 245, 350, 43);
+        panel.add(entryBtn);
+
+        JButton exitBtn = new JButton("MARK EXIT");
+        exitBtn.setBounds(45, 305, 350, 40);
+        exitBtn.setBackground(new Color(130, 76, 55));
+        exitBtn.setForeground(Color.WHITE);
+        exitBtn.setFocusPainted(false);
+        panel.add(exitBtn);
+
+        JButton backBtn = new JButton("Back to home");
+        backBtn.setBounds(130, 365, 180, 30);
+        backBtn.setForeground(CREAM);
+        backBtn.setContentAreaFilled(false);
+        backBtn.setBorderPainted(false);
+        panel.add(backBtn);
+
+        entryBtn.addActionListener(e -> handleEntry());
+        exitBtn.addActionListener(e -> handleExit());
+        backBtn.addActionListener(e -> {
+            new WelcomeFrame();
+            dispose();
+        });
+
+        setVisible(true);
+    }
+
+    // Handles visitor entry at gate
+    private void handleEntry() {
+        String code = codeField.getText().trim();
+        if (code.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter the visitor pass code.");
+            return;
+        }
+
+        String hash = CodeGenerator.sha256(code);
+        String selectSql = "SELECT visitor_id, visitor_name, status, has_vehicle, valid_from, valid_until, parking_slot " +
+                           "FROM \"A-partment\".visitors WHERE access_hash = ?";
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(selectSql)) {
+
+            ps.setString(1, hash);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    JOptionPane.showMessageDialog(this, "Invalid pass code.");
+                    return;
+                }
+
+                int visitorId = rs.getInt("visitor_id");
+                String name = rs.getString("visitor_name");
+                String status = rs.getString("status");
+                boolean hasVehicle = rs.getBoolean("has_vehicle");
+                Timestamp validFrom = rs.getTimestamp("valid_from");
+                Timestamp validUntil = rs.getTimestamp("valid_until");
+                Timestamp now = new Timestamp(System.currentTimeMillis());
+
+                if (!"PENDING".equalsIgnoreCase(status)) {
+                    JOptionPane.showMessageDialog(this, "Pass cannot be used for entry. Current status: " + status);
+                    return;
+                }
+                if (now.before(validFrom)) {
+                    JOptionPane.showMessageDialog(this, "Pass is not valid yet. Valid from: " + validFrom);
+                    return;
+                }
+                if (now.after(validUntil)) {
+                    JOptionPane.showMessageDialog(this, "Pass has expired.");
+                    return;
+                }
+
+                String assignedSlot = null;
+                // If visitor arrives with vehicle, allocate an available visitor parking slot
+                if (hasVehicle) {
+                    String parkSql = "SELECT parking_id, slot_number FROM \"A-partment\".parking " +
+                                     "WHERE parking_type = 'VISITOR' AND status = 'AVAILABLE' ORDER BY slot_number LIMIT 1";
+                    try (PreparedStatement parkPs = con.prepareStatement(parkSql);
+                         ResultSet parkRs = parkPs.executeQuery()) {
+
+                        if (!parkRs.next()) {
+                            JOptionPane.showMessageDialog(this, "No visitor parking slot available!");
+                            return;
+                        }
+
+                        int parkingId = parkRs.getInt("parking_id");
+                        assignedSlot = parkRs.getString("slot_number");
+
+                        // Mark slot occupied
+                        String updateParkSql = "UPDATE \"A-partment\".parking SET status = 'OCCUPIED', visitor_id = ? WHERE parking_id = ?";
+                        try (PreparedStatement uPark = con.prepareStatement(updateParkSql)) {
+                            uPark.setInt(1, visitorId);
+                            uPark.setInt(2, parkingId);
+                            uPark.executeUpdate();
+                        }
+
+                        // Save assigned slot on visitor record
+                        String updateSlotSql = "UPDATE \"A-partment\".visitors SET parking_slot = ? WHERE visitor_id = ?";
+                        try (PreparedStatement uSlot = con.prepareStatement(updateSlotSql)) {
+                            uSlot.setString(1, assignedSlot);
+                            uSlot.setInt(2, visitorId);
+                            uSlot.executeUpdate();
+                        }
+                    }
+                }
+
+                // Update visitor status to ENTERED
+                String updateEntrySql = "UPDATE \"A-partment\".visitors SET status = 'ENTERED', entry_time = CURRENT_TIMESTAMP WHERE visitor_id = ?";
+                try (PreparedStatement uEntry = con.prepareStatement(updateEntrySql)) {
+                    uEntry.setInt(1, visitorId);
+                    uEntry.executeUpdate();
+                }
+
+                String msg = "Entry Confirmed! Welcome, " + name + "!";
+                if (assignedSlot != null) {
+                    msg += "\nAssigned Parking Slot: " + assignedSlot;
+                }
+                JOptionPane.showMessageDialog(this, msg);
+                codeField.setText("");
+            }
+        } catch (Exception ex) {
+            LoginFrame.showDbError(ex);
+        }
+    }
+
+    // Handles visitor exit at gate
+    private void handleExit() {
+        String code = codeField.getText().trim();
+        if (code.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter the visitor pass code.");
+            return;
+        }
+
+        String hash = CodeGenerator.sha256(code);
+        String selectSql = "SELECT visitor_id, visitor_name, status, parking_slot FROM \"A-partment\".visitors WHERE access_hash = ?";
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(selectSql)) {
+
+            ps.setString(1, hash);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    JOptionPane.showMessageDialog(this, "Invalid pass code.");
+                    return;
+                }
+
+                int visitorId = rs.getInt("visitor_id");
+                String name = rs.getString("visitor_name");
+                String status = rs.getString("status");
+                String slot = rs.getString("parking_slot");
+
+                if (!"ENTERED".equalsIgnoreCase(status)) {
+                    JOptionPane.showMessageDialog(this, "Only visitors with status 'ENTERED' can check out. Current status: " + status);
+                    return;
+                }
+
+                // Mark visitor status as EXITED
+                String updateExitSql = "UPDATE \"A-partment\".visitors SET status = 'EXITED', exit_time = CURRENT_TIMESTAMP WHERE visitor_id = ?";
+                try (PreparedStatement uExit = con.prepareStatement(updateExitSql)) {
+                    uExit.setInt(1, visitorId);
+                    uExit.executeUpdate();
+                }
+
+                // Free allocated parking slot if any
+                if (slot != null && !slot.isBlank()) {
+                    String freeParkSql = "UPDATE \"A-partment\".parking SET status = 'AVAILABLE', visitor_id = NULL WHERE slot_number = ? AND parking_type = 'VISITOR'";
+                    try (PreparedStatement uFree = con.prepareStatement(freeParkSql)) {
+                        uFree.setString(1, slot);
+                        uFree.executeUpdate();
+                    }
+                }
+
+                JOptionPane.showMessageDialog(this, "Exit Confirmed! Goodbye, " + name + "!");
+                codeField.setText("");
+            }
+        } catch (Exception ex) {
+            LoginFrame.showDbError(ex);
+        }
+    }
 }
