@@ -193,6 +193,41 @@ public class WorkerDashboard extends JFrame {
             return;
         }
 
+        double billedAmount = 0.0;
+        String billDesc = null;
+
+        if ("COMPLETED".equals(newStatus)) {
+            String title = (String) complaintsModel.getValueAt(selectedRow, 3);
+            String resName = (String) complaintsModel.getValueAt(selectedRow, 1);
+            String apt = (String) complaintsModel.getValueAt(selectedRow, 2);
+
+            JTextField amtField = new JTextField("0");
+            JTextField descField = new JTextField("Maintenance Service: " + title);
+
+            JPanel billForm = new JPanel(new GridLayout(0, 1, 6, 6));
+            billForm.add(new JLabel("Marking job completed for " + resName + " (" + apt + ")"));
+            billForm.add(new JLabel("Bill Amount to charge resident (₹) [0 if included/free]:"));
+            billForm.add(amtField);
+            billForm.add(new JLabel("Bill Description / Notes:"));
+            billForm.add(descField);
+
+            int opt = JOptionPane.showConfirmDialog(this, billForm, "Complete Work & Bill Resident", JOptionPane.OK_CANCEL_OPTION);
+            if (opt != JOptionPane.OK_OPTION) {
+                return; // Worker cancelled
+            }
+
+            try {
+                billedAmount = Double.parseDouble(amtField.getText().trim());
+                if (billedAmount < 0) billedAmount = 0;
+            } catch (Exception ignored) {
+                billedAmount = 0;
+            }
+            billDesc = descField.getText().trim();
+            if (billDesc.isEmpty()) {
+                billDesc = "Maintenance Service: " + title;
+            }
+        }
+
         String sql;
         if ("ASSIGNED".equals(newStatus)) {
             if (!"PENDING".equals(currentStatus) && !"ASSIGNED".equals(currentStatus)) {
@@ -224,7 +259,38 @@ public class WorkerDashboard extends JFrame {
 
             int rowsUpdated = ps.executeUpdate();
             if (rowsUpdated > 0) {
-                JOptionPane.showMessageDialog(this, "Complaint updated to " + newStatus + ".");
+                if ("COMPLETED".equals(newStatus) && billedAmount > 0) {
+                    // Fetch resident_id for this complaint
+                    int residentId = -1;
+                    String getResSql = "SELECT resident_id FROM complaints WHERE complaint_id = ?";
+                    try (PreparedStatement psRes = con.prepareStatement(getResSql)) {
+                        psRes.setInt(1, complaintId);
+                        try (ResultSet rsRes = psRes.executeQuery()) {
+                            if (rsRes.next()) {
+                                residentId = rsRes.getInt("resident_id");
+                            }
+                        }
+                    }
+
+                    if (residentId != -1) {
+                        String billSql = "INSERT INTO payments (resident_id, month_year, amount, due_date, status, payment_type, complaint_id) " +
+                                         "VALUES (?, ?, ?, CURRENT_DATE + INTERVAL '7 days', 'PENDING', 'WORKER_SERVICE', ?)";
+                        try (PreparedStatement psBill = con.prepareStatement(billSql)) {
+                            psBill.setInt(1, residentId);
+                            psBill.setString(2, billDesc);
+                            psBill.setDouble(3, billedAmount);
+                            psBill.setInt(4, complaintId);
+                            psBill.executeUpdate();
+                        }
+                    }
+
+                    JOptionPane.showMessageDialog(this,
+                            "Job COMPLETED!\nBill of ₹" + String.format("%.2f", billedAmount) +
+                            " automatically generated and sent to resident.",
+                            "Success & Billed", JOptionPane.INFORMATION_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(this, "Complaint updated to " + newStatus.replace("_", " ") + ".");
+                }
             } else {
                 JOptionPane.showMessageDialog(this, "Could not update complaint. Check if it is assigned to you.");
             }

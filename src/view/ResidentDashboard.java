@@ -39,7 +39,7 @@ public class ResidentDashboard extends JFrame {
     private JTextArea complaintDescArea;
     private JLabel complaintsSummaryLabel;
     private final DefaultTableModel complaintsModel = new DefaultTableModel(
-            new String[] { "ID", "Title", "Category", "Worker", "Due Date", "Status", "Deadline" }, 0) {
+            new String[] { "ID", "Title", "Category", "Worker", "Due Date", "Status", "Deadline", "Description" }, 0) {
         public boolean isCellEditable(int row, int col) { return false; }
     };
     private final JTable complaintsTable = new JTable(complaintsModel);
@@ -391,6 +391,9 @@ public class ResidentDashboard extends JFrame {
         complaintsTable.getColumnModel().getColumn(5).setPreferredWidth(85);
         complaintsTable.getColumnModel().getColumn(6).setPreferredWidth(95);
 
+        // Hide column 7 (Description) from direct table display; read via selection
+        complaintsTable.removeColumn(complaintsTable.getColumnModel().getColumn(7));
+
         complaintsTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
@@ -418,9 +421,50 @@ public class ResidentDashboard extends JFrame {
         });
 
         JScrollPane scrollPane = new JScrollPane(complaintsTable);
-        scrollPane.setBounds(20, 70, 580, 540);
+        scrollPane.setBounds(20, 70, 580, 330);
         scrollPane.setBorder(BorderFactory.createLineBorder(LINE, 1));
         historyPanel.add(scrollPane);
+
+        // Selected Complaint Detail & Description Pane
+        JPanel detailBox = new JPanel(null);
+        detailBox.setBounds(20, 412, 580, 198);
+        detailBox.setBackground(new Color(253, 250, 246));
+        detailBox.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        historyPanel.add(detailBox);
+
+        JLabel detailHeader = new JLabel("Complaint Description & Issue Details");
+        detailHeader.setBounds(14, 10, 550, 20);
+        detailHeader.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        detailHeader.setForeground(COFFEE);
+        detailBox.add(detailHeader);
+
+        JTextArea detailDescArea = new JTextArea("Select a complaint row above to read the full description and worker notes.");
+        detailDescArea.setEditable(false);
+        detailDescArea.setLineWrap(true);
+        detailDescArea.setWrapStyleWord(true);
+        detailDescArea.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        detailDescArea.setBackground(Color.WHITE);
+        JScrollPane descPane = new JScrollPane(detailDescArea);
+        descPane.setBounds(14, 32, 552, 152);
+        descPane.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        detailBox.add(descPane);
+
+        complaintsTable.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                int row = complaintsTable.getSelectedRow();
+                if (row >= 0) {
+                    String title = (String) complaintsModel.getValueAt(row, 1);
+                    String cat = (String) complaintsModel.getValueAt(row, 2);
+                    String worker = (String) complaintsModel.getValueAt(row, 3);
+                    String desc = (String) complaintsModel.getValueAt(row, 7);
+                    detailHeader.setText("Details for: " + title + " (" + cat + ") · Worker: " + worker);
+                    detailDescArea.setText(desc != null && !desc.isBlank() ? desc : "No description entered for this complaint.");
+                } else {
+                    detailHeader.setText("Complaint Description & Issue Details");
+                    detailDescArea.setText("Select a complaint row above to read the full description and worker notes.");
+                }
+            }
+        });
 
         return panel;
     }
@@ -635,12 +679,22 @@ public class ResidentDashboard extends JFrame {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         String dueDateStr = sdf.format(selectedDate);
 
-        String sql = "INSERT INTO complaints (resident_id, title, description, category, due_date, status) VALUES (?, ?, ?, ?, ?::DATE, 'PENDING')";
-
         try (Connection con = DBConnection.getConnection()) {
             if (con == null) {
                 JOptionPane.showMessageDialog(this, "Database connection not available. Please verify your connection.", "Connection Error", JOptionPane.ERROR_MESSAGE);
                 return;
+            }
+
+            // Auto-assign worker according to rule:
+            // 1. Look for worker with 0 active tasks (unassigned).
+            // 2. Only look for already-assigned workers if NO workers are unassigned.
+            Integer autoWorkerId = AdminDashboard.findWorkerForComplaint(con, category);
+
+            String sql;
+            if (autoWorkerId != null) {
+                sql = "INSERT INTO complaints (resident_id, title, description, category, due_date, status, worker_id) VALUES (?, ?, ?, ?, ?::DATE, 'ASSIGNED', ?)";
+            } else {
+                sql = "INSERT INTO complaints (resident_id, title, description, category, due_date, status) VALUES (?, ?, ?, ?, ?::DATE, 'PENDING')";
             }
 
             try (PreparedStatement ps = con.prepareStatement(sql)) {
@@ -649,10 +703,16 @@ public class ResidentDashboard extends JFrame {
                 ps.setString(3, description);
                 ps.setString(4, category);
                 ps.setString(5, dueDateStr);
+                if (autoWorkerId != null) {
+                    ps.setInt(6, autoWorkerId);
+                }
 
                 int rows = ps.executeUpdate();
                 if (rows > 0) {
-                    JOptionPane.showMessageDialog(this, "Complaint raised successfully!\nDue Date: " + dueDateStr, "Success", JOptionPane.INFORMATION_MESSAGE);
+                    String notice = autoWorkerId != null
+                            ? "Complaint submitted and automatically assigned to an available technician!"
+                            : "Complaint submitted! Will be assigned as soon as a technician becomes available.";
+                    JOptionPane.showMessageDialog(this, notice + "\nDue Date: " + dueDateStr, "Success", JOptionPane.INFORMATION_MESSAGE);
                     complaintTitleField.setText("");
                     complaintDescArea.setText("");
                     loadComplaints();
@@ -668,7 +728,7 @@ public class ResidentDashboard extends JFrame {
     private void loadComplaints() {
         complaintsModel.setRowCount(0);
 
-        String sql = "SELECT c.complaint_id, c.title, c.category, c.due_date, c.status, " +
+        String sql = "SELECT c.complaint_id, c.title, c.category, c.due_date, c.status, c.description, " +
                      "COALESCE(w.full_name, 'Unassigned') AS worker_name " +
                      "FROM complaints c " +
                      "LEFT JOIN workers w ON c.worker_id = w.worker_id " +
@@ -695,6 +755,7 @@ public class ResidentDashboard extends JFrame {
                         String title = rs.getString("title");
                         String category = rs.getString("category");
                         String worker = rs.getString("worker_name");
+                        String desc = rs.getString("description");
                         java.sql.Date dueDate = rs.getDate("due_date");
                         String rawStatus = rs.getString("status");
                         String displayStatus = rawStatus != null ? rawStatus.replace("_", " ") : "PENDING";
@@ -722,7 +783,8 @@ public class ResidentDashboard extends JFrame {
                                 worker,
                                 dueDate != null ? dueDate.toString() : "Not Set",
                                 displayStatus,
-                                deadlineText
+                                deadlineText,
+                                desc
                         });
                     }
                 }

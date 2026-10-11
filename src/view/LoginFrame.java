@@ -10,6 +10,7 @@ public class LoginFrame extends JFrame {
     private final JPasswordField passwordField = new JPasswordField();
     private final JRadioButton residentBtn = new JRadioButton("Resident", true);
     private final JRadioButton workerBtn = new JRadioButton("Worker");
+    private final JRadioButton adminBtn = new JRadioButton("Admin");
 
     // Theme Colors
     private static final Color COFFEE = new Color(55, 36, 27);
@@ -51,12 +52,16 @@ public class LoginFrame extends JFrame {
         ButtonGroup group = new ButtonGroup();
         group.add(residentBtn);
         group.add(workerBtn);
+        group.add(adminBtn);
         styleRadio(residentBtn);
         styleRadio(workerBtn);
-        residentBtn.setBounds(75, 295, 120, 30);
-        workerBtn.setBounds(225, 295, 100, 30);
+        styleRadio(adminBtn);
+        residentBtn.setBounds(50, 295, 105, 30);
+        workerBtn.setBounds(165, 295, 95, 30);
+        adminBtn.setBounds(275, 295, 95, 30);
         panel.add(residentBtn);
         panel.add(workerBtn);
+        panel.add(adminBtn);
 
         JButton login = button("SIGN IN");
         login.setBounds(50, 355, 330, 45);
@@ -78,7 +83,7 @@ public class LoginFrame extends JFrame {
         setVisible(true);
     }
 
-    // Authenticates resident or worker login against database
+    // Authenticates resident, worker, or admin login against database
     private void authenticate() {
         String email = emailField.getText().trim().toLowerCase();
         String password = new String(passwordField.getPassword());
@@ -88,9 +93,19 @@ public class LoginFrame extends JFrame {
             return;
         }
 
-        boolean isResident = residentBtn.isSelected();
-        String table = isResident ? "residents" : "workers";
-        String idCol = isResident ? "resident_id" : "worker_id";
+        String table;
+        String idCol;
+        if (residentBtn.isSelected()) {
+            table = "residents";
+            idCol = "resident_id";
+        } else if (workerBtn.isSelected()) {
+            table = "workers";
+            idCol = "worker_id";
+        } else {
+            table = "admins";
+            idCol = "admin_id";
+        }
+
         String sql = "SELECT " + idCol + ", full_name, password FROM " + table + " WHERE lower(email) = ?";
 
         try (Connection con = DBConnection.getConnection();
@@ -102,10 +117,12 @@ public class LoginFrame extends JFrame {
                     int id = rs.getInt(idCol);
                     String name = rs.getString("full_name");
 
-                    if (isResident) {
+                    if (residentBtn.isSelected()) {
                         new ResidentDashboard(id, name);
-                    } else {
+                    } else if (workerBtn.isSelected()) {
                         new WorkerDashboard(id, name);
+                    } else {
+                        new AdminDashboard(id, name);
                     }
                     dispose();
                 } else {
