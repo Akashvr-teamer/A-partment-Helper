@@ -75,14 +75,15 @@ CREATE TABLE IF NOT EXISTS complaints (
 CREATE TABLE IF NOT EXISTS payments (
   payment_id SERIAL PRIMARY KEY,
   resident_id INT NOT NULL REFERENCES residents(resident_id) ON DELETE CASCADE,
-  month_year VARCHAR(20) NOT NULL,
+  month_year VARCHAR(255) NOT NULL,
   amount DECIMAL(10,2) NOT NULL CHECK(amount >= 0),
   due_date DATE NOT NULL,
   payment_date DATE,
   status VARCHAR(20) DEFAULT 'PENDING' CHECK(status IN ('PENDING','PAID','OVERDUE')),
   payment_method VARCHAR(30),
   transaction_id VARCHAR(100),
-  UNIQUE(resident_id, month_year)
+  payment_type VARCHAR(50) DEFAULT 'MAINTENANCE',
+  complaint_id INT REFERENCES complaints(complaint_id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_visitors_resident ON visitors(resident_id, visitor_id DESC);

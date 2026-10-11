@@ -226,6 +226,9 @@ public class WorkerDashboard extends JFrame {
             if (billDesc.isEmpty()) {
                 billDesc = "Maintenance Service: " + title;
             }
+            if (billDesc.length() > 255) {
+                billDesc = billDesc.substring(0, 255);
+            }
         }
 
         String sql;

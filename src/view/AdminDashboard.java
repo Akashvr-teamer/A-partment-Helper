@@ -697,6 +697,9 @@ public class AdminDashboard extends JFrame {
 
         ResidentItem selectedRes = (ResidentItem) resBox.getSelectedItem();
         String title = titleField.getText().trim();
+        if (title.length() > 255) {
+            title = title.substring(0, 255);
+        }
         String amtStr = amountField.getText().trim();
         Date dueDate = (Date) dueSpinner.getValue();
 
