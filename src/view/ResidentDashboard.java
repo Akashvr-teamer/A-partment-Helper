@@ -148,34 +148,24 @@ public class ResidentDashboard extends JFrame {
         }
     }
 
-    // Common Top Navy Bar for Portal Views
+    // Common Top Header Bar for Portal Views matching App Colors (COFFEE theme)
     private JPanel createTopBar(String title) {
         JPanel header = new JPanel(null);
         header.setBounds(0, 0, 960, 65);
-        header.setBackground(new Color(8, 23, 53));
+        header.setBackground(COFFEE);
 
         JLabel headerTitle = new JLabel(title);
         headerTitle.setBounds(30, 16, 450, 32);
         headerTitle.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        headerTitle.setForeground(Color.WHITE);
+        headerTitle.setForeground(CREAM);
         header.add(headerTitle);
 
         JLabel subHeader = new JLabel("Resident: " + residentName + " (ID: #" + residentId + ")");
-        subHeader.setBounds(460, 22, 360, 20);
+        subHeader.setBounds(500, 22, 425, 20);
         subHeader.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        subHeader.setForeground(new Color(190, 210, 255));
+        subHeader.setForeground(new Color(220, 195, 165));
         subHeader.setHorizontalAlignment(SwingConstants.RIGHT);
         header.add(subHeader);
-
-        JButton closeBtn = new JButton("Close");
-        closeBtn.setBounds(840, 18, 90, 30);
-        closeBtn.setBackground(new Color(55, 65, 81));
-        closeBtn.setForeground(Color.WHITE);
-        closeBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        closeBtn.setFocusPainted(false);
-        closeBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        closeBtn.addActionListener(e -> showView("OVERVIEW"));
-        header.add(closeBtn);
 
         return header;
     }
@@ -263,39 +253,42 @@ public class ResidentDashboard extends JFrame {
     // ==========================================
     private JPanel createComplaintsPanel() {
         JPanel panel = new JPanel(null);
-        panel.setBackground(new Color(243, 244, 246));
+        panel.setBackground(CREAM);
 
-        // Top Header
+        // Top Header matching COFFEE theme (no close button)
         panel.add(createTopBar("Maintenance Complaints Portal"));
 
         // Left Panel: Raise New Complaint Form
         JPanel formPanel = new JPanel(null);
         formPanel.setBounds(30, 85, 335, 620);
         formPanel.setBackground(Color.WHITE);
-        formPanel.setBorder(BorderFactory.createLineBorder(new Color(229, 231, 235), 1));
+        formPanel.setBorder(BorderFactory.createLineBorder(LINE, 1));
         panel.add(formPanel);
 
         JLabel formTitle = new JLabel("Raise New Complaint");
         formTitle.setBounds(20, 15, 290, 25);
         formTitle.setFont(new Font("Segoe UI", Font.BOLD, 17));
-        formTitle.setForeground(new Color(17, 24, 39));
+        formTitle.setForeground(COFFEE);
         formPanel.add(formTitle);
 
         JLabel titleLbl = new JLabel("Complaint Title *");
         titleLbl.setBounds(20, 50, 295, 20);
         titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        titleLbl.setForeground(new Color(55, 65, 81));
+        titleLbl.setForeground(new Color(115, 82, 56));
         formPanel.add(titleLbl);
 
         complaintTitleField = new JTextField();
         complaintTitleField.setBounds(20, 72, 295, 32);
         complaintTitleField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        complaintTitleField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(LINE, 1),
+                BorderFactory.createEmptyBorder(2, 8, 2, 8)));
         formPanel.add(complaintTitleField);
 
         JLabel catLbl = new JLabel("Category *");
         catLbl.setBounds(20, 114, 295, 20);
         catLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        catLbl.setForeground(new Color(55, 65, 81));
+        catLbl.setForeground(new Color(115, 82, 56));
         formPanel.add(catLbl);
 
         String[] categories = {"Plumbing", "Electrical", "Carpentry", "Lift", "Pest Control", "Cleaning", "Painting", "General Maintenance"};
@@ -303,12 +296,13 @@ public class ResidentDashboard extends JFrame {
         complaintCategoryCombo.setBounds(20, 136, 295, 32);
         complaintCategoryCombo.setBackground(Color.WHITE);
         complaintCategoryCombo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        complaintCategoryCombo.setBorder(BorderFactory.createLineBorder(LINE, 1));
         formPanel.add(complaintCategoryCombo);
 
         JLabel dueLbl = new JLabel("Requested Resolution Due Date *");
         dueLbl.setBounds(20, 178, 295, 20);
         dueLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        dueLbl.setForeground(new Color(55, 65, 81));
+        dueLbl.setForeground(new Color(115, 82, 56));
         formPanel.add(dueLbl);
 
         Calendar cal = Calendar.getInstance();
@@ -321,12 +315,13 @@ public class ResidentDashboard extends JFrame {
         complaintDueDateSpinner.setEditor(new JSpinner.DateEditor(complaintDueDateSpinner, "yyyy-MM-dd"));
         complaintDueDateSpinner.setBounds(20, 200, 295, 32);
         complaintDueDateSpinner.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        complaintDueDateSpinner.setBorder(BorderFactory.createLineBorder(LINE, 1));
         formPanel.add(complaintDueDateSpinner);
 
         JLabel descLbl = new JLabel("Description / Issue Details");
         descLbl.setBounds(20, 242, 295, 20);
         descLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        descLbl.setForeground(new Color(55, 65, 81));
+        descLbl.setForeground(new Color(115, 82, 56));
         formPanel.add(descLbl);
 
         complaintDescArea = new JTextArea();
@@ -335,15 +330,11 @@ public class ResidentDashboard extends JFrame {
         complaintDescArea.setWrapStyleWord(true);
         JScrollPane descScroll = new JScrollPane(complaintDescArea);
         descScroll.setBounds(20, 264, 295, 260);
+        descScroll.setBorder(BorderFactory.createLineBorder(LINE, 1));
         formPanel.add(descScroll);
 
-        JButton submitBtn = new JButton("Submit Complaint");
+        JButton submitBtn = LoginFrame.button("SUBMIT COMPLAINT");
         submitBtn.setBounds(20, 545, 295, 44);
-        submitBtn.setBackground(new Color(37, 99, 235));
-        submitBtn.setForeground(Color.WHITE);
-        submitBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        submitBtn.setFocusPainted(false);
-        submitBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         submitBtn.addActionListener(e -> submitComplaint());
         formPanel.add(submitBtn);
 
@@ -351,20 +342,21 @@ public class ResidentDashboard extends JFrame {
         JPanel historyPanel = new JPanel(null);
         historyPanel.setBounds(385, 85, 545, 620);
         historyPanel.setBackground(Color.WHITE);
-        historyPanel.setBorder(BorderFactory.createLineBorder(new Color(229, 231, 235), 1));
+        historyPanel.setBorder(BorderFactory.createLineBorder(LINE, 1));
         panel.add(historyPanel);
 
         JLabel histTitle = new JLabel("My Complaint History & Overdue Status");
         histTitle.setBounds(20, 15, 370, 25);
         histTitle.setFont(new Font("Segoe UI", Font.BOLD, 17));
-        histTitle.setForeground(new Color(17, 24, 39));
+        histTitle.setForeground(COFFEE);
         historyPanel.add(histTitle);
 
         JButton refreshBtn = new JButton("Refresh");
         refreshBtn.setBounds(430, 14, 95, 28);
-        refreshBtn.setBackground(new Color(243, 244, 246));
-        refreshBtn.setForeground(new Color(31, 41, 55));
-        refreshBtn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        refreshBtn.setBackground(new Color(242, 231, 215));
+        refreshBtn.setForeground(COFFEE);
+        refreshBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        refreshBtn.setBorder(BorderFactory.createLineBorder(LINE, 1));
         refreshBtn.setFocusPainted(false);
         refreshBtn.addActionListener(e -> loadComplaints());
         historyPanel.add(refreshBtn);
@@ -372,15 +364,19 @@ public class ResidentDashboard extends JFrame {
         complaintsSummaryLabel = new JLabel("Loading complaints...");
         complaintsSummaryLabel.setBounds(20, 43, 505, 20);
         complaintsSummaryLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        complaintsSummaryLabel.setForeground(new Color(107, 114, 128));
+        complaintsSummaryLabel.setForeground(new Color(126, 105, 86));
         historyPanel.add(complaintsSummaryLabel);
 
         complaintsTable.setRowHeight(28);
         complaintsTable.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         complaintsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        complaintsTable.setShowVerticalLines(false);
+        complaintsTable.setGridColor(new Color(242, 235, 226));
+        complaintsTable.setSelectionBackground(new Color(242, 225, 201));
+        complaintsTable.setSelectionForeground(COFFEE);
         complaintsTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
-        complaintsTable.getTableHeader().setBackground(new Color(243, 244, 246));
-        complaintsTable.getTableHeader().setForeground(new Color(55, 65, 81));
+        complaintsTable.getTableHeader().setBackground(new Color(239, 226, 209));
+        complaintsTable.getTableHeader().setForeground(COFFEE);
 
         complaintsTable.getColumnModel().getColumn(0).setPreferredWidth(35);
         complaintsTable.getColumnModel().getColumn(1).setPreferredWidth(135);
@@ -399,16 +395,16 @@ public class ResidentDashboard extends JFrame {
 
                 if (!isSelected) {
                     if (deadlineVal != null && deadlineVal.toString().contains("OVERDUE")) {
-                        c.setForeground(new Color(220, 38, 38));
+                        c.setForeground(new Color(195, 35, 35));
                         if (col == 5 || col == 6) c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else if (statusVal != null && (statusVal.toString().equalsIgnoreCase("RESOLVED") || statusVal.toString().equalsIgnoreCase("COMPLETED"))) {
-                        c.setForeground(new Color(16, 185, 129));
+                        c.setForeground(new Color(24, 134, 75));
                         if (col == 5 || col == 6) c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else if (statusVal != null && statusVal.toString().toUpperCase().contains("IN PROGRESS")) {
-                        c.setForeground(new Color(234, 88, 12));
+                        c.setForeground(new Color(205, 115, 25));
                         if (col == 5 || col == 6) c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else {
-                        c.setForeground(new Color(31, 41, 55));
+                        c.setForeground(COFFEE);
                         c.setFont(c.getFont().deriveFont(Font.PLAIN));
                     }
                 }
@@ -418,6 +414,7 @@ public class ResidentDashboard extends JFrame {
 
         JScrollPane scrollPane = new JScrollPane(complaintsTable);
         scrollPane.setBounds(20, 70, 505, 525);
+        scrollPane.setBorder(BorderFactory.createLineBorder(LINE, 1));
         historyPanel.add(scrollPane);
 
         return panel;
@@ -428,9 +425,9 @@ public class ResidentDashboard extends JFrame {
     // ==========================================
     private JPanel createPaymentsPanel() {
         JPanel panel = new JPanel(null);
-        panel.setBackground(new Color(243, 244, 246));
+        panel.setBackground(CREAM);
 
-        // Top Header
+        // Top Header matching COFFEE theme (no close button)
         panel.add(createTopBar("Maintenance Fee & Payments"));
 
         // 3 Summary Stat Cards
@@ -450,30 +447,32 @@ public class ResidentDashboard extends JFrame {
         JPanel tablePanel = new JPanel(null);
         tablePanel.setBounds(30, 190, 895, 515);
         tablePanel.setBackground(Color.WHITE);
-        tablePanel.setBorder(BorderFactory.createLineBorder(new Color(229, 231, 235), 1));
+        tablePanel.setBorder(BorderFactory.createLineBorder(LINE, 1));
         panel.add(tablePanel);
 
         JLabel panelTitle = new JLabel("Payment History & Due Dates");
         panelTitle.setBounds(20, 15, 300, 25);
         panelTitle.setFont(new Font("Segoe UI", Font.BOLD, 17));
-        panelTitle.setForeground(new Color(17, 24, 39));
+        panelTitle.setForeground(COFFEE);
         tablePanel.add(panelTitle);
 
         JButton payBtn = new JButton("Pay Selected Bill");
         payBtn.setBounds(560, 14, 180, 34);
-        payBtn.setBackground(new Color(16, 185, 129));
+        payBtn.setBackground(new Color(40, 135, 75));
         payBtn.setForeground(Color.WHITE);
         payBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
         payBtn.setFocusPainted(false);
+        payBtn.setBorder(BorderFactory.createLineBorder(new Color(30, 110, 60), 1));
         payBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         payBtn.addActionListener(e -> processPayment());
         tablePanel.add(payBtn);
 
         JButton refreshBtn = new JButton("Refresh");
         refreshBtn.setBounds(755, 14, 120, 34);
-        refreshBtn.setBackground(new Color(243, 244, 246));
-        refreshBtn.setForeground(new Color(31, 41, 55));
-        refreshBtn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        refreshBtn.setBackground(new Color(242, 231, 215));
+        refreshBtn.setForeground(COFFEE);
+        refreshBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        refreshBtn.setBorder(BorderFactory.createLineBorder(LINE, 1));
         refreshBtn.setFocusPainted(false);
         refreshBtn.addActionListener(e -> loadPayments());
         tablePanel.add(refreshBtn);
@@ -481,9 +480,13 @@ public class ResidentDashboard extends JFrame {
         paymentsTable.setRowHeight(28);
         paymentsTable.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         paymentsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        paymentsTable.setShowVerticalLines(false);
+        paymentsTable.setGridColor(new Color(242, 235, 226));
+        paymentsTable.setSelectionBackground(new Color(242, 225, 201));
+        paymentsTable.setSelectionForeground(COFFEE);
         paymentsTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
-        paymentsTable.getTableHeader().setBackground(new Color(243, 244, 246));
-        paymentsTable.getTableHeader().setForeground(new Color(55, 65, 81));
+        paymentsTable.getTableHeader().setBackground(new Color(239, 226, 209));
+        paymentsTable.getTableHeader().setForeground(COFFEE);
 
         paymentsTable.getColumnModel().getColumn(0).setPreferredWidth(40);
         paymentsTable.getColumnModel().getColumn(1).setPreferredWidth(120);
@@ -503,13 +506,13 @@ public class ResidentDashboard extends JFrame {
 
                 if (!isSelected) {
                     if (trackingVal != null && trackingVal.toString().contains("OVERDUE")) {
-                        c.setForeground(new Color(220, 38, 38));
+                        c.setForeground(new Color(195, 35, 35));
                         if (col == 7 || col == 8) c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else if (trackingVal != null && trackingVal.toString().contains("PAID")) {
-                        c.setForeground(new Color(5, 150, 105));
+                        c.setForeground(new Color(24, 134, 75));
                         if (col == 7 || col == 8) c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else {
-                        c.setForeground(new Color(31, 41, 55));
+                        c.setForeground(COFFEE);
                         c.setFont(c.getFont().deriveFont(Font.PLAIN));
                     }
                 }
@@ -519,6 +522,7 @@ public class ResidentDashboard extends JFrame {
 
         JScrollPane scrollPane = new JScrollPane(paymentsTable);
         scrollPane.setBounds(20, 60, 855, 435);
+        scrollPane.setBorder(BorderFactory.createLineBorder(LINE, 1));
         tablePanel.add(scrollPane);
 
         return panel;
@@ -532,8 +536,8 @@ public class ResidentDashboard extends JFrame {
 
         JLabel titleLbl = new JLabel(title);
         titleLbl.setBounds(20, 14, width - 30, 20);
-        titleLbl.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        titleLbl.setForeground(new Color(75, 85, 99));
+        titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        titleLbl.setForeground(new Color(115, 82, 56));
         card.add(titleLbl);
 
         JLabel valLbl = new JLabel(value);
