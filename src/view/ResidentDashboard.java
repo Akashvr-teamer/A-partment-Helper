@@ -67,7 +67,7 @@ public class ResidentDashboard extends JFrame {
 
         JLabel logo = new JLabel("  A-partment");
         logo.setForeground(CREAM);
-        logo.setFont(new Font("Serif", Font.BOLD, 24));
+        logo.setFont(new Font("Segoe UI", Font.BOLD, 22));
         logo.setBorder(BorderFactory.createEmptyBorder(26, 10, 34, 5));
         sidebar.add(logo);
 
@@ -146,12 +146,12 @@ public class ResidentDashboard extends JFrame {
         titlePanel.setLayout(new BoxLayout(titlePanel, BoxLayout.Y_AXIS));
 
         JLabel welcomeLabel = new JLabel("Welcome back, " + residentName);
-        welcomeLabel.setFont(new Font("Serif", Font.BOLD, 29));
+        welcomeLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
         welcomeLabel.setForeground(COFFEE);
 
         JLabel subLabel = new JLabel("Your apartment at a glance");
         subLabel.setForeground(new Color(126, 105, 86));
-        subLabel.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        subLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
 
         titlePanel.add(welcomeLabel);
         titlePanel.add(Box.createVerticalStrut(5));
@@ -186,7 +186,7 @@ public class ResidentDashboard extends JFrame {
         JPanel tableHeader = new JPanel(new BorderLayout());
         tableHeader.setOpaque(false);
         JLabel tableTitle = new JLabel("Recent visitor passes");
-        tableTitle.setFont(new Font("Serif", Font.BOLD, 22));
+        tableTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
         tableTitle.setForeground(COFFEE);
         tableHeader.add(tableTitle, BorderLayout.WEST);
 
@@ -219,13 +219,14 @@ public class ResidentDashboard extends JFrame {
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         JLabel title = new JLabel("Maintenance & Complaints");
-        title.setFont(new Font("Serif", Font.BOLD, 29));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 26));
         title.setForeground(COFFEE);
         header.add(title, BorderLayout.WEST);
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         buttonPanel.setOpaque(false);
         JButton refreshBtn = new JButton("Refresh");
+        refreshBtn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         refreshBtn.setFocusPainted(false);
         refreshBtn.addActionListener(e -> loadComplaints());
 
@@ -261,7 +262,7 @@ public class ResidentDashboard extends JFrame {
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         JLabel title = new JLabel("Maintenance Payments");
-        title.setFont(new Font("Serif", Font.BOLD, 29));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 26));
         title.setForeground(COFFEE);
         header.add(title, BorderLayout.WEST);
 
@@ -520,6 +521,7 @@ public class ResidentDashboard extends JFrame {
         b.setBorder(BorderFactory.createEmptyBorder(9, 27, 9, 8));
         b.setBackground(COFFEE);
         b.setForeground(CREAM);
+        b.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         b.setFocusPainted(false);
         b.setOpaque(true);
         b.addActionListener(e -> action.run());
@@ -535,10 +537,10 @@ public class ResidentDashboard extends JFrame {
 
         JLabel titleLbl = new JLabel(title);
         titleLbl.setForeground(new Color(115, 82, 56));
-        titleLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
+        titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
 
         valueLabel.setForeground(COFFEE);
-        valueLabel.setFont(new Font("SansSerif", Font.BOLD, 26));
+        valueLabel.setFont(new Font("Segoe UI", Font.BOLD, 26));
 
         p.add(titleLbl, BorderLayout.NORTH);
         p.add(valueLabel, BorderLayout.CENTER);
@@ -547,6 +549,7 @@ public class ResidentDashboard extends JFrame {
 
     private void styleTable(JTable table) {
         table.setRowHeight(30);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         table.setFillsViewportHeight(true);
         table.setShowVerticalLines(false);
         table.setGridColor(new Color(242, 235, 226));
@@ -554,6 +557,6 @@ public class ResidentDashboard extends JFrame {
         table.setSelectionForeground(COFFEE);
         table.getTableHeader().setBackground(new Color(239, 226, 209));
         table.getTableHeader().setForeground(COFFEE);
-        table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
+        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
     }
 }

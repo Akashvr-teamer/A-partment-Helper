@@ -30,12 +30,13 @@ public class LoginFrame extends JFrame {
         JLabel title = new JLabel("WELCOME BACK", SwingConstants.CENTER);
         title.setBounds(35, 35, 360, 40);
         title.setForeground(CREAM);
-        title.setFont(new Font("SansSerif", Font.BOLD, 25));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 24));
         panel.add(title);
 
         JLabel subtitle = new JLabel("Sign in to A-partment Helper", SwingConstants.CENTER);
         subtitle.setBounds(35, 75, 360, 24);
         subtitle.setForeground(new Color(220, 195, 165));
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         panel.add(subtitle);
 
         addLabel(panel, "Email address", 50, 130);
@@ -128,7 +129,7 @@ public class LoginFrame extends JFrame {
         JButton b = new JButton(text);
         b.setBackground(AMBER);
         b.setForeground(Color.WHITE);
-        b.setFont(new Font("SansSerif", Font.BOLD, 14));
+        b.setFont(new Font("Segoe UI", Font.BOLD, 14));
         b.setFocusPainted(false);
         b.setBorderPainted(false);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -139,13 +140,14 @@ public class LoginFrame extends JFrame {
         JLabel l = new JLabel(s);
         l.setBounds(x, y, 300, 20);
         l.setForeground(CREAM);
-        l.setFont(new Font("SansSerif", Font.BOLD, 13));
+        l.setFont(new Font("Segoe UI", Font.BOLD, 13));
         p.add(l);
     }
 
     private static void styleRadio(JRadioButton b) {
         b.setOpaque(false);
         b.setForeground(CREAM);
+        b.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         b.setFocusPainted(false);
     }
 }

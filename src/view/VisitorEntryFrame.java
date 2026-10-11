@@ -25,17 +25,19 @@ public class VisitorEntryFrame extends JFrame {
         JLabel title = new JLabel("VISITOR GATE DESK", SwingConstants.CENTER);
         title.setBounds(25, 35, 400, 40);
         title.setForeground(CREAM);
-        title.setFont(new Font("Serif", Font.BOLD, 26));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 26));
         panel.add(title);
 
         JLabel sub = new JLabel("Enter the pass code to record entry or exit", SwingConstants.CENTER);
         sub.setBounds(25, 85, 400, 25);
         sub.setForeground(new Color(220, 195, 165));
+        sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         panel.add(sub);
 
         JLabel label = new JLabel("Access pass code");
         label.setBounds(45, 145, 350, 22);
         label.setForeground(CREAM);
+        label.setFont(new Font("Segoe UI", Font.BOLD, 13));
         panel.add(label);
 
         codeField.setBounds(45, 173, 350, 45);
@@ -51,12 +53,14 @@ public class VisitorEntryFrame extends JFrame {
         exitBtn.setBounds(45, 305, 350, 40);
         exitBtn.setBackground(new Color(130, 76, 55));
         exitBtn.setForeground(Color.WHITE);
+        exitBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         exitBtn.setFocusPainted(false);
         panel.add(exitBtn);
 
         JButton backBtn = new JButton("Back to home");
         backBtn.setBounds(130, 365, 180, 30);
         backBtn.setForeground(CREAM);
+        backBtn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         backBtn.setContentAreaFilled(false);
         backBtn.setBorderPainted(false);
         panel.add(backBtn);

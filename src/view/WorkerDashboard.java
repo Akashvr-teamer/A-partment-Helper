@@ -55,10 +55,11 @@ public class WorkerDashboard extends JFrame {
         heading.setLayout(new BoxLayout(heading, BoxLayout.Y_AXIS));
 
         JLabel title = new JLabel("Worker Desk");
-        title.setFont(new Font("Serif", Font.BOLD, 30));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(COFFEE);
 
         JLabel sub = new JLabel("Welcome, " + workerName + "  ·  Complaints and parking overview");
+        sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         sub.setForeground(new Color(126, 105, 86));
 
         heading.add(title);
@@ -133,7 +134,7 @@ public class WorkerDashboard extends JFrame {
                 BorderFactory.createEmptyBorder(14, 16, 14, 16)));
 
         JLabel label = new JLabel(title);
-        label.setFont(new Font("Serif", Font.BOLD, 20));
+        label.setFont(new Font("Segoe UI", Font.BOLD, 18));
         label.setForeground(COFFEE);
         p.add(label, BorderLayout.NORTH);
         p.add(content, BorderLayout.CENTER);
@@ -142,6 +143,7 @@ public class WorkerDashboard extends JFrame {
 
     private void styleTable(JTable t) {
         t.setRowHeight(29);
+        t.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         t.setFillsViewportHeight(true);
         t.setShowVerticalLines(false);
         t.setGridColor(new Color(242, 235, 226));
@@ -149,7 +151,7 @@ public class WorkerDashboard extends JFrame {
         t.setSelectionForeground(COFFEE);
         t.getTableHeader().setBackground(new Color(239, 226, 209));
         t.getTableHeader().setForeground(COFFEE);
-        t.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
+        t.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
     }
 
     // Fetches complaints and parking data from database

@@ -40,7 +40,7 @@ public class InviteVisitorFrame extends JFrame {
 
         JLabel title = new JLabel("Create Visitor Pass");
         title.setBounds(30, 20, 420, 40);
-        title.setFont(new Font("Serif", Font.BOLD, 27));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 27));
         title.setForeground(COFFEE);
         panel.add(title);
 
@@ -49,6 +49,7 @@ public class InviteVisitorFrame extends JFrame {
 
         hasVehicleCheck.setBounds(35, 215, 300, 25);
         hasVehicleCheck.setBackground(CREAM);
+        hasVehicleCheck.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         panel.add(hasVehicleCheck);
 
         addField(panel, "Vehicle registration", vehicleField, 260);
@@ -93,7 +94,7 @@ public class InviteVisitorFrame extends JFrame {
     private void addLabel(JPanel p, String s, int x, int y) {
         JLabel l = new JLabel(s);
         l.setBounds(x, y, 400, 20);
-        l.setFont(new Font("SansSerif", Font.BOLD, 13));
+        l.setFont(new Font("Segoe UI", Font.BOLD, 13));
         l.setForeground(COFFEE);
         p.add(l);
     }

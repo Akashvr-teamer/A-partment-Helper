@@ -21,16 +21,17 @@ public class WelcomeFrame extends JFrame {
         mark.setOpaque(true);
         mark.setBackground(AMBER);
         mark.setForeground(COFFEE);
-        mark.setFont(new Font("Serif", Font.BOLD, 64));
+        mark.setFont(new Font("Segoe UI", Font.BOLD, 64));
         p.add(mark);
         JLabel title = new JLabel("A-partment Helper", SwingConstants.CENTER);
         title.setBounds(30, 175, 420, 42);
         title.setForeground(CREAM);
-        title.setFont(new Font("Serif", Font.BOLD, 30));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 30));
         p.add(title);
         JLabel sub = new JLabel("A smarter, warmer way to manage your society", SwingConstants.CENTER);
         sub.setBounds(25, 220, 430, 26);
         sub.setForeground(new Color(220, 195, 165));
+        sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         p.add(sub);
         JButton login = LoginFrame.button("RESIDENT / WORKER LOGIN");
         login.setBounds(65, 300, 350, 55);
@@ -43,7 +44,7 @@ public class WelcomeFrame extends JFrame {
         visitor.setBounds(65, 375, 350, 50);
         visitor.setBackground(new Color(95, 67, 48));
         visitor.setForeground(CREAM);
-        visitor.setFont(new Font("SansSerif", Font.BOLD, 14));
+        visitor.setFont(new Font("Segoe UI", Font.BOLD, 14));
         visitor.setFocusPainted(false);
         p.add(visitor);
         visitor.addActionListener(e -> {
@@ -53,6 +54,7 @@ public class WelcomeFrame extends JFrame {
         JLabel foot = new JLabel("SECURE  •  SIMPLE  •  CONNECTED", SwingConstants.CENTER);
         foot.setBounds(40, 500, 400, 25);
         foot.setForeground(new Color(190, 160, 125));
+        foot.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         p.add(foot);
         setVisible(true);
     }
