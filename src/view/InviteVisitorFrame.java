@@ -18,9 +18,10 @@ public class InviteVisitorFrame extends JFrame {
     private final JTextField vehicleField = new JTextField();
     private final JCheckBox hasVehicleCheck = new JCheckBox("Visitor is arriving by vehicle");
 
-    private final JSpinner dateSpinner = new JSpinner(new SpinnerDateModel());
-    private final JSpinner startSpinner = new JSpinner(new SpinnerDateModel());
-    private final JSpinner endSpinner = new JSpinner(new SpinnerDateModel());
+    private final JSpinner startDateSpinner = new JSpinner(new SpinnerDateModel());
+    private final JSpinner startTimeSpinner = new JSpinner(new SpinnerDateModel());
+    private final JSpinner endDateSpinner = new JSpinner(new SpinnerDateModel());
+    private final JSpinner endTimeSpinner = new JSpinner(new SpinnerDateModel());
 
     private static final Color COFFEE = new Color(55, 36, 27);
     private static final Color CREAM = new Color(250, 245, 235);
@@ -30,9 +31,10 @@ public class InviteVisitorFrame extends JFrame {
         this.dashboard = dashboard;
 
         setTitle("Invite a visitor");
-        setSize(500, 650);
+        setSize(485, 610);
         setLocationRelativeTo(dashboard);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        setResizable(false);
 
         JPanel panel = new JPanel(null);
         panel.setBackground(CREAM);
@@ -52,7 +54,7 @@ public class InviteVisitorFrame extends JFrame {
         hasVehicleCheck.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         panel.add(hasVehicleCheck);
 
-        addField(panel, "Vehicle registration", vehicleField, 260);
+        addField(panel, "Vehicle registration", vehicleField, 250);
         vehicleField.setEnabled(false);
         hasVehicleCheck.addActionListener(e -> {
             boolean hasVehicle = hasVehicleCheck.isSelected();
@@ -62,23 +64,30 @@ public class InviteVisitorFrame extends JFrame {
             }
         });
 
-        addLabel(panel, "Visit date", 35, 330);
-        dateSpinner.setBounds(35, 355, 190, 35);
-        dateSpinner.setEditor(new JSpinner.DateEditor(dateSpinner, "dd MMM yyyy"));
-        panel.add(dateSpinner);
+        // Valid From: Date and Time
+        addLabel(panel, "Valid from (Date)", 35, 320);
+        startDateSpinner.setBounds(35, 345, 190, 34);
+        startDateSpinner.setEditor(new JSpinner.DateEditor(startDateSpinner, "dd MMM yyyy"));
+        panel.add(startDateSpinner);
 
-        addLabel(panel, "Start time", 250, 330);
-        startSpinner.setBounds(250, 355, 190, 35);
-        startSpinner.setEditor(new JSpinner.DateEditor(startSpinner, "hh:mm a"));
-        panel.add(startSpinner);
+        addLabel(panel, "Start time", 250, 320);
+        startTimeSpinner.setBounds(250, 345, 190, 34);
+        startTimeSpinner.setEditor(new JSpinner.DateEditor(startTimeSpinner, "hh:mm a"));
+        panel.add(startTimeSpinner);
 
-        addLabel(panel, "End time", 35, 410);
-        endSpinner.setBounds(35, 435, 190, 35);
-        endSpinner.setEditor(new JSpinner.DateEditor(endSpinner, "hh:mm a"));
-        panel.add(endSpinner);
+        // Valid Until: Date and Time
+        addLabel(panel, "Valid until (Date)", 35, 395);
+        endDateSpinner.setBounds(35, 420, 190, 34);
+        endDateSpinner.setEditor(new JSpinner.DateEditor(endDateSpinner, "dd MMM yyyy"));
+        panel.add(endDateSpinner);
+
+        addLabel(panel, "End time", 250, 395);
+        endTimeSpinner.setBounds(250, 420, 190, 34);
+        endTimeSpinner.setEditor(new JSpinner.DateEditor(endTimeSpinner, "hh:mm a"));
+        panel.add(endTimeSpinner);
 
         JButton saveBtn = LoginFrame.button("GENERATE ACCESS PASS");
-        saveBtn.setBounds(35, 515, 405, 48);
+        saveBtn.setBounds(35, 495, 405, 48);
         panel.add(saveBtn);
         saveBtn.addActionListener(e -> saveVisitor());
 
@@ -116,12 +125,13 @@ public class InviteVisitorFrame extends JFrame {
             return;
         }
 
-        Date selectedDate = (Date) dateSpinner.getValue();
-        Date startTime = (Date) startSpinner.getValue();
-        Date endTime = (Date) endSpinner.getValue();
+        Date startDate = (Date) startDateSpinner.getValue();
+        Date startTime = (Date) startTimeSpinner.getValue();
+        Date endDate = (Date) endDateSpinner.getValue();
+        Date endTime = (Date) endTimeSpinner.getValue();
 
         Calendar startCal = Calendar.getInstance();
-        startCal.setTime(selectedDate);
+        startCal.setTime(startDate);
         Calendar tempStart = Calendar.getInstance();
         tempStart.setTime(startTime);
         startCal.set(Calendar.HOUR_OF_DAY, tempStart.get(Calendar.HOUR_OF_DAY));
@@ -129,7 +139,7 @@ public class InviteVisitorFrame extends JFrame {
         startCal.set(Calendar.SECOND, 0);
 
         Calendar endCal = Calendar.getInstance();
-        endCal.setTime(selectedDate);
+        endCal.setTime(endDate);
         Calendar tempEnd = Calendar.getInstance();
         tempEnd.setTime(endTime);
         endCal.set(Calendar.HOUR_OF_DAY, tempEnd.get(Calendar.HOUR_OF_DAY));
@@ -137,7 +147,7 @@ public class InviteVisitorFrame extends JFrame {
         endCal.set(Calendar.SECOND, 0);
 
         if (!endCal.after(startCal)) {
-            JOptionPane.showMessageDialog(this, "End time must be after start time.");
+            JOptionPane.showMessageDialog(this, "Valid until date and time must be after valid from date and time.");
             return;
         }
 
