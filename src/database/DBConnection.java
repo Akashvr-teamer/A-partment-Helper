@@ -7,7 +7,7 @@ import java.sql.SQLException;
 public class DBConnection {
 
     // Database connection details for Supabase PostgreSQL
-    private static final String URL = "jdbc:postgresql://aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require&currentSchema=\"A-partment\"";
+    private static final String URL = "jdbc:postgresql://aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require";
     private static final String USER = "postgres.qjzczawhtqcewdjqbged";
     private static final String PASSWORD = "Thisisadbpas";
 

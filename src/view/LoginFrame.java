@@ -90,7 +90,7 @@ public class LoginFrame extends JFrame {
         boolean isResident = residentBtn.isSelected();
         String table = isResident ? "residents" : "workers";
         String idCol = isResident ? "resident_id" : "worker_id";
-        String sql = "SELECT " + idCol + ", full_name, password FROM \"A-partment\"." + table + " WHERE lower(email) = ?";
+        String sql = "SELECT " + idCol + ", full_name, password FROM " + table + " WHERE lower(email) = ?";
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {

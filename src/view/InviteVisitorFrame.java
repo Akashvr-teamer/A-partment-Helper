@@ -144,7 +144,7 @@ public class InviteVisitorFrame extends JFrame {
         String passCode = CodeGenerator.generateCode();
         String passHash = CodeGenerator.sha256(passCode);
 
-        String sql = "INSERT INTO \"A-partment\".visitors(resident_id, visitor_name, phone, has_vehicle, vehicle_no, access_hash, valid_from, valid_until, status) " +
+        String sql = "INSERT INTO visitors(resident_id, visitor_name, phone, has_vehicle, vehicle_no, access_hash, valid_from, valid_until, status) " +
                      "VALUES(?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')";
 
         try (Connection con = DBConnection.getConnection();

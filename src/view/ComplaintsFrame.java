@@ -93,7 +93,7 @@ public class ComplaintsFrame extends JFrame {
             return;
         }
 
-        String sql = "INSERT INTO \"A-partment\".complaints(resident_id, title, description, category, status) VALUES(?, ?, ?, ?, 'PENDING')";
+        String sql = "INSERT INTO complaints(resident_id, title, description, category, status) VALUES(?, ?, ?, ?, 'PENDING')";
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
 
@@ -113,7 +113,7 @@ public class ComplaintsFrame extends JFrame {
     // Fetches complaints for this resident and populates the table
     private void loadComplaints() {
         model.setRowCount(0);
-        String sql = "SELECT complaint_id, title, category, status, created_at FROM \"A-partment\".complaints WHERE resident_id = ? ORDER BY complaint_id DESC";
+        String sql = "SELECT complaint_id, title, category, status, created_at FROM complaints WHERE resident_id = ? ORDER BY complaint_id DESC";
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {

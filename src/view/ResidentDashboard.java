@@ -208,7 +208,7 @@ public class ResidentDashboard extends JFrame {
         try (Connection con = DBConnection.getConnection()) {
 
             // 1. Fetch parking slot
-            String slotSql = "SELECT parking_slot FROM \"A-partment\".residents WHERE resident_id = ?";
+            String slotSql = "SELECT parking_slot FROM residents WHERE resident_id = ?";
             try (PreparedStatement ps = con.prepareStatement(slotSql)) {
                 ps.setInt(1, residentId);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -224,7 +224,7 @@ public class ResidentDashboard extends JFrame {
             visitorModel.setRowCount(0);
             int count = 0;
             String visitorSql = "SELECT visitor_name, phone, COALESCE(parking_slot, '—') AS slot, status, valid_until " +
-                                "FROM \"A-partment\".visitors WHERE resident_id = ? ORDER BY visitor_id DESC";
+                                "FROM visitors WHERE resident_id = ? ORDER BY visitor_id DESC";
             try (PreparedStatement ps = con.prepareStatement(visitorSql)) {
                 ps.setInt(1, residentId);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -243,7 +243,7 @@ public class ResidentDashboard extends JFrame {
             visitorsVal.setText(String.valueOf(count));
 
             // 3. Fetch maintenance due amount
-            String dueSql = "SELECT COALESCE(SUM(amount), 0) FROM \"A-partment\".payments " +
+            String dueSql = "SELECT COALESCE(SUM(amount), 0) FROM payments " +
                             "WHERE resident_id = ? AND status IN ('PENDING', 'OVERDUE')";
             try (PreparedStatement ps = con.prepareStatement(dueSql)) {
                 ps.setInt(1, residentId);

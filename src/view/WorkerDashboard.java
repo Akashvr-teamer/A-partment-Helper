@@ -162,9 +162,9 @@ public class WorkerDashboard extends JFrame {
             String complaintsSql =
                 "SELECT c.complaint_id, r.full_name, r.apartment_no, c.title, c.category, c.status, " +
                 "       COALESCE(w.full_name, 'Unassigned') AS worker " +
-                "FROM \"A-partment\".complaints c " +
-                "JOIN \"A-partment\".residents r ON r.resident_id = c.resident_id " +
-                "LEFT JOIN \"A-partment\".workers w ON w.worker_id = c.worker_id " +
+                "FROM complaints c " +
+                "JOIN residents r ON r.resident_id = c.resident_id " +
+                "LEFT JOIN workers w ON w.worker_id = c.worker_id " +
                 "ORDER BY CASE c.status WHEN 'PENDING' THEN 0 WHEN 'ASSIGNED' THEN 1 WHEN 'IN_PROGRESS' THEN 2 ELSE 3 END, c.created_at";
 
             try (PreparedStatement ps = con.prepareStatement(complaintsSql);
@@ -187,9 +187,9 @@ public class WorkerDashboard extends JFrame {
             String parkingSql =
                 "SELECT p.slot_number, p.parking_type, p.status, " +
                 "       COALESCE(r.full_name, v.visitor_name, '—') AS occupant " +
-                "FROM \"A-partment\".parking p " +
-                "LEFT JOIN \"A-partment\".residents r ON r.resident_id = p.resident_id " +
-                "LEFT JOIN \"A-partment\".visitors v ON v.visitor_id = p.visitor_id " +
+                "FROM parking p " +
+                "LEFT JOIN residents r ON r.resident_id = p.resident_id " +
+                "LEFT JOIN visitors v ON v.visitor_id = p.visitor_id " +
                 "ORDER BY p.parking_type, p.slot_number";
 
             try (PreparedStatement ps = con.prepareStatement(parkingSql);
@@ -233,16 +233,16 @@ public class WorkerDashboard extends JFrame {
                 JOptionPane.showMessageDialog(this, "Only pending complaints can be claimed.");
                 return;
             }
-            sql = "UPDATE \"A-partment\".complaints SET worker_id = ?, status = 'ASSIGNED' WHERE complaint_id = ?";
+            sql = "UPDATE complaints SET worker_id = ?, status = 'ASSIGNED' WHERE complaint_id = ?";
         } else if ("IN_PROGRESS".equals(newStatus)) {
             if (!"ASSIGNED".equals(currentStatus)) {
                 JOptionPane.showMessageDialog(this, "Claim this complaint first before marking in progress.");
                 return;
             }
-            sql = "UPDATE \"A-partment\".complaints SET status = 'IN_PROGRESS' WHERE complaint_id = ? AND worker_id = ?";
+            sql = "UPDATE complaints SET status = 'IN_PROGRESS' WHERE complaint_id = ? AND worker_id = ?";
         } else {
             // COMPLETED
-            sql = "UPDATE \"A-partment\".complaints SET status = 'COMPLETED', completed_at = CURRENT_TIMESTAMP WHERE complaint_id = ? AND worker_id = ?";
+            sql = "UPDATE complaints SET status = 'COMPLETED', completed_at = CURRENT_TIMESTAMP WHERE complaint_id = ? AND worker_id = ?";
         }
 
         try (Connection con = DBConnection.getConnection();

@@ -1,25 +1,23 @@
 -- ============================================
 -- SMART APARTMENT SOCIETY MANAGEMENT SYSTEM
--- PostgreSQL Populate Script for "A-partment" Schema
+-- PostgreSQL Populate Script (public schema)
 -- ============================================
-
-SET search_path TO "A-partment";
 
 -- Clear existing data and restart identity sequences so IDs start from 1
 TRUNCATE TABLE 
-    "A-partment".payments,
-    "A-partment".complaints,
-    "A-partment".visitors,
-    "A-partment".parking,
-    "A-partment".workers,
-    "A-partment".residents 
+    payments,
+    complaints,
+    visitors,
+    parking,
+    workers,
+    residents 
 RESTART IDENTITY CASCADE;
 
 -- ============================================
 -- RESIDENTS
 -- ============================================
 
-INSERT INTO "A-partment".residents
+INSERT INTO residents
 (full_name, email, phone, apartment_no, password, vehicle_no, parking_slot)
 VALUES
 ('Akash Kumar', 'akash@gmail.com', '9876543210', 'A-101', '1234', 'KL07AB1234', 'A-01'),
@@ -30,7 +28,7 @@ VALUES
 -- WORKERS
 -- ============================================
 
-INSERT INTO "A-partment".workers
+INSERT INTO workers
 (full_name, email, phone, worker_type, password)
 VALUES
 ('Suresh Kumar', 'suresh@apartment.com', '9876500001', 'Electrician', '1234'),
@@ -41,7 +39,7 @@ VALUES
 -- PARKING SLOTS
 -- ============================================
 
-INSERT INTO "A-partment".parking
+INSERT INTO parking
 (slot_number, parking_type, status, resident_id)
 VALUES
 ('A-01', 'RESIDENT', 'OCCUPIED', 1),
@@ -59,7 +57,7 @@ VALUES
 -- VISITORS
 -- ============================================
 
-INSERT INTO "A-partment".visitors
+INSERT INTO visitors
 (
     resident_id,
     visitor_name,
@@ -114,7 +112,7 @@ VALUES
 -- COMPLAINTS
 -- ============================================
 
-INSERT INTO "A-partment".complaints
+INSERT INTO complaints
 (
     resident_id,
     worker_id,
@@ -153,7 +151,7 @@ VALUES
 -- PAYMENTS
 -- ============================================
 
-INSERT INTO "A-partment".payments
+INSERT INTO payments
 (
     resident_id,
     month_year,

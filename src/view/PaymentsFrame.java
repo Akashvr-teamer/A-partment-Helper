@@ -97,7 +97,7 @@ public class PaymentsFrame extends JFrame {
             return;
         }
 
-        String sql = "UPDATE \"A-partment\".payments SET status = 'PAID', payment_date = CURRENT_DATE, payment_method = ? " +
+        String sql = "UPDATE payments SET status = 'PAID', payment_date = CURRENT_DATE, payment_method = ? " +
                      "WHERE payment_id = ? AND resident_id = ? AND status IN ('PENDING', 'OVERDUE')";
 
         try (Connection con = DBConnection.getConnection();
@@ -123,7 +123,7 @@ public class PaymentsFrame extends JFrame {
     private void loadPayments() {
         model.setRowCount(0);
         String sql = "SELECT payment_id, month_year, amount, due_date, status, payment_date " +
-                     "FROM \"A-partment\".payments WHERE resident_id = ? ORDER BY due_date DESC";
+                     "FROM payments WHERE resident_id = ? ORDER BY due_date DESC";
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {

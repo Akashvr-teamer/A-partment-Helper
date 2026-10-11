@@ -65,7 +65,7 @@ $env:APARTMENT_DB_PASSWORD="YOUR-DB-PASSWORD"
 
 ## Notes and limitations
 
-- All database table queries explicitly use the quoted PostgreSQL schema name `"A-partment"`.
+- Database tables use the standard PostgreSQL `public` schema for simplicity.
 - Visitor parking is allocated when a valid vehicle visitor checks in, not when the invite is created. Walk-in visitors do not consume parking slots.
 - The payment screen is not connected to a payment gateway. It only updates the local payment record after user confirmation.
 - Passwords are currently plain text for compatibility with the starter project. Do not use this authentication design in production; use a password hash (e.g. Argon2id or BCrypt) and server-side authorization for a deployed system.

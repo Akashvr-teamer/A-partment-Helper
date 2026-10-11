@@ -81,7 +81,7 @@ public class VisitorEntryFrame extends JFrame {
 
         String hash = CodeGenerator.sha256(code);
         String selectSql = "SELECT visitor_id, visitor_name, status, has_vehicle, valid_from, valid_until, parking_slot " +
-                           "FROM \"A-partment\".visitors WHERE access_hash = ?";
+                           "FROM visitors WHERE access_hash = ?";
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(selectSql)) {
@@ -117,7 +117,7 @@ public class VisitorEntryFrame extends JFrame {
                 String assignedSlot = null;
                 // If visitor arrives with vehicle, allocate an available visitor parking slot
                 if (hasVehicle) {
-                    String parkSql = "SELECT parking_id, slot_number FROM \"A-partment\".parking " +
+                    String parkSql = "SELECT parking_id, slot_number FROM parking " +
                                      "WHERE parking_type = 'VISITOR' AND status = 'AVAILABLE' ORDER BY slot_number LIMIT 1";
                     try (PreparedStatement parkPs = con.prepareStatement(parkSql);
                          ResultSet parkRs = parkPs.executeQuery()) {
@@ -131,7 +131,7 @@ public class VisitorEntryFrame extends JFrame {
                         assignedSlot = parkRs.getString("slot_number");
 
                         // Mark slot occupied
-                        String updateParkSql = "UPDATE \"A-partment\".parking SET status = 'OCCUPIED', visitor_id = ? WHERE parking_id = ?";
+                        String updateParkSql = "UPDATE parking SET status = 'OCCUPIED', visitor_id = ? WHERE parking_id = ?";
                         try (PreparedStatement uPark = con.prepareStatement(updateParkSql)) {
                             uPark.setInt(1, visitorId);
                             uPark.setInt(2, parkingId);
@@ -139,7 +139,7 @@ public class VisitorEntryFrame extends JFrame {
                         }
 
                         // Save assigned slot on visitor record
-                        String updateSlotSql = "UPDATE \"A-partment\".visitors SET parking_slot = ? WHERE visitor_id = ?";
+                        String updateSlotSql = "UPDATE visitors SET parking_slot = ? WHERE visitor_id = ?";
                         try (PreparedStatement uSlot = con.prepareStatement(updateSlotSql)) {
                             uSlot.setString(1, assignedSlot);
                             uSlot.setInt(2, visitorId);
@@ -149,7 +149,7 @@ public class VisitorEntryFrame extends JFrame {
                 }
 
                 // Update visitor status to ENTERED
-                String updateEntrySql = "UPDATE \"A-partment\".visitors SET status = 'ENTERED', entry_time = CURRENT_TIMESTAMP WHERE visitor_id = ?";
+                String updateEntrySql = "UPDATE visitors SET status = 'ENTERED', entry_time = CURRENT_TIMESTAMP WHERE visitor_id = ?";
                 try (PreparedStatement uEntry = con.prepareStatement(updateEntrySql)) {
                     uEntry.setInt(1, visitorId);
                     uEntry.executeUpdate();
@@ -176,7 +176,7 @@ public class VisitorEntryFrame extends JFrame {
         }
 
         String hash = CodeGenerator.sha256(code);
-        String selectSql = "SELECT visitor_id, visitor_name, status, parking_slot FROM \"A-partment\".visitors WHERE access_hash = ?";
+        String selectSql = "SELECT visitor_id, visitor_name, status, parking_slot FROM visitors WHERE access_hash = ?";
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(selectSql)) {
@@ -199,7 +199,7 @@ public class VisitorEntryFrame extends JFrame {
                 }
 
                 // Mark visitor status as EXITED
-                String updateExitSql = "UPDATE \"A-partment\".visitors SET status = 'EXITED', exit_time = CURRENT_TIMESTAMP WHERE visitor_id = ?";
+                String updateExitSql = "UPDATE visitors SET status = 'EXITED', exit_time = CURRENT_TIMESTAMP WHERE visitor_id = ?";
                 try (PreparedStatement uExit = con.prepareStatement(updateExitSql)) {
                     uExit.setInt(1, visitorId);
                     uExit.executeUpdate();
@@ -207,7 +207,7 @@ public class VisitorEntryFrame extends JFrame {
 
                 // Free allocated parking slot if any
                 if (slot != null && !slot.isBlank()) {
-                    String freeParkSql = "UPDATE \"A-partment\".parking SET status = 'AVAILABLE', visitor_id = NULL WHERE slot_number = ? AND parking_type = 'VISITOR'";
+                    String freeParkSql = "UPDATE parking SET status = 'AVAILABLE', visitor_id = NULL WHERE slot_number = ? AND parking_type = 'VISITOR'";
                     try (PreparedStatement uFree = con.prepareStatement(freeParkSql)) {
                         uFree.setString(1, slot);
                         uFree.executeUpdate();
