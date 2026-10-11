@@ -314,31 +314,20 @@ public class AdminDashboard extends JFrame {
         tablePanel.setBorder(BorderFactory.createLineBorder(LINE, 1));
         panel.add(tablePanel);
 
-        // Controls Header
         JLabel tblTitle = new JLabel("All Maintenance Complaints");
-        tblTitle.setBounds(20, 15, 230, 25);
+        tblTitle.setBounds(20, 15, 320, 25);
         tblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
         tblTitle.setForeground(COFFEE);
         tablePanel.add(tblTitle);
 
-        JButton autoAssignBtn = new JButton("⚡ Auto-Assign Unassigned");
-        autoAssignBtn.setBounds(240, 12, 195, 32);
-        autoAssignBtn.setBackground(AMBER);
-        autoAssignBtn.setForeground(Color.WHITE);
-        autoAssignBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        autoAssignBtn.setFocusPainted(false);
-        autoAssignBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        autoAssignBtn.addActionListener(e -> autoAssignAllComplaints());
-        tablePanel.add(autoAssignBtn);
-
         workerDropdown = new JComboBox<>();
-        workerDropdown.setBounds(445, 12, 210, 32);
+        workerDropdown.setBounds(440, 12, 210, 32);
         workerDropdown.setBackground(Color.WHITE);
         workerDropdown.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         tablePanel.add(workerDropdown);
 
         JButton assignManualBtn = new JButton("Assign Selected");
-        assignManualBtn.setBounds(665, 12, 125, 32);
+        assignManualBtn.setBounds(660, 12, 130, 32);
         assignManualBtn.setBackground(new Color(242, 231, 215));
         assignManualBtn.setForeground(COFFEE);
         assignManualBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -598,40 +587,6 @@ public class AdminDashboard extends JFrame {
         }
 
         return null;
-    }
-
-    private void autoAssignAllComplaints() {
-        String findUnassigned = "SELECT complaint_id, category FROM complaints WHERE worker_id IS NULL OR status = 'PENDING'";
-        int assignedCount = 0;
-
-        try (Connection con = DBConnection.getConnection()) {
-            if (con == null) return;
-
-            try (PreparedStatement selectPs = con.prepareStatement(findUnassigned);
-                 ResultSet rs = selectPs.executeQuery();
-                 PreparedStatement updatePs = con.prepareStatement("UPDATE complaints SET worker_id = ?, status = 'ASSIGNED' WHERE complaint_id = ?")) {
-                while (rs.next()) {
-                    int cId = rs.getInt("complaint_id");
-                    String cat = rs.getString("category");
-                    Integer workerId = findWorkerForComplaint(con, cat);
-                    if (workerId != null) {
-                        updatePs.setInt(1, workerId);
-                        updatePs.setInt(2, cId);
-                        updatePs.executeUpdate();
-                        assignedCount++;
-                    }
-                }
-            }
-
-            JOptionPane.showMessageDialog(this,
-                    "Auto-assignment complete!\nAssigned " + assignedCount + " complaints to available workers.",
-                    "Auto-Assign Result", JOptionPane.INFORMATION_MESSAGE);
-
-            loadComplaintsData();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            LoginFrame.showDbError(ex);
-        }
     }
 
     private void assignSelectedComplaintManual() {
