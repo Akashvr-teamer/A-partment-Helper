@@ -23,6 +23,15 @@ CREATE TABLE IF NOT EXISTS workers (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS admins (
+  admin_id SERIAL PRIMARY KEY,
+  full_name VARCHAR(100) NOT NULL,
+  email VARCHAR(100) UNIQUE NOT NULL,
+  phone VARCHAR(15),
+  password VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS visitors (
   visitor_id SERIAL PRIMARY KEY,
   resident_id INT NOT NULL REFERENCES residents(resident_id) ON DELETE CASCADE,
@@ -87,6 +96,11 @@ ON CONFLICT(email) DO NOTHING;
 
 INSERT INTO workers(full_name, email, phone, worker_type, password)
 VALUES('Guard Ramesh', 'worker@example.com', '9123456780', 'Security', '1234')
+ON CONFLICT(email) DO NOTHING;
+
+INSERT INTO admins(full_name, email, phone, password)
+VALUES('Society Admin', 'admin@apartment.com', '9876500000', 'Admin@2026'),
+      ('Society Admin', 'admin@example.com', '9876500001', '1234')
 ON CONFLICT(email) DO NOTHING;
 
 INSERT INTO parking(slot_number, parking_type, status)
