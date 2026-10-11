@@ -50,67 +50,62 @@ public class ResidentDashboard extends JFrame {
 
         setTitle("A-partment Helper | Resident Dashboard");
         setSize(1180, 760);
-        setMinimumSize(new Dimension(940, 650));
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setResizable(false);
 
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(CREAM);
         setContentPane(root);
 
-        // Sidebar Navigation
-        JPanel sidebar = new JPanel();
-        sidebar.setPreferredSize(new Dimension(220, 10));
+        // Sidebar Navigation (Simple beginner-friendly null layout with setBounds)
+        JPanel sidebar = new JPanel(null);
+        sidebar.setPreferredSize(new Dimension(220, 760));
         sidebar.setBackground(COFFEE);
-        sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
-        sidebar.setBorder(BorderFactory.createEmptyBorder(0, 14, 20, 14));
         root.add(sidebar, BorderLayout.WEST);
 
         // App Name Header
-        JPanel logoPanel = new JPanel();
-        logoPanel.setOpaque(false);
-        logoPanel.setLayout(new BoxLayout(logoPanel, BoxLayout.Y_AXIS));
-        logoPanel.setBorder(BorderFactory.createEmptyBorder(22, 4, 24, 4));
-        logoPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
         JLabel logo = new JLabel("A-partment");
+        logo.setBounds(20, 25, 180, 30);
         logo.setForeground(CREAM);
         logo.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        logo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        sidebar.add(logo);
 
         JLabel logoSub = new JLabel("Resident Portal");
+        logoSub.setBounds(20, 55, 180, 20);
         logoSub.setForeground(new Color(185, 155, 130));
         logoSub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        logoSub.setAlignmentX(Component.LEFT_ALIGNMENT);
+        sidebar.add(logoSub);
 
-        logoPanel.add(logo);
-        logoPanel.add(Box.createVerticalStrut(3));
-        logoPanel.add(logoSub);
-        sidebar.add(logoPanel);
+        // Sidebar buttons
+        JButton overviewBtn = createSidebarButton("Overview");
+        overviewBtn.setBounds(15, 100, 190, 42);
+        overviewBtn.addActionListener(e -> showView("OVERVIEW"));
+        sidebar.add(overviewBtn);
 
-        // Sidebar buttons switch views inside the main container
-        sidebar.add(createMenuItem("Overview", () -> showView("OVERVIEW")));
-        sidebar.add(Box.createVerticalStrut(8));
-        sidebar.add(createMenuItem("Complaints", () -> showView("COMPLAINTS")));
-        sidebar.add(Box.createVerticalStrut(8));
-        sidebar.add(createMenuItem("Payments", () -> showView("PAYMENTS")));
-        sidebar.add(Box.createVerticalStrut(8));
-        sidebar.add(createMenuItem("Refresh data", this::refreshCurrentView));
+        JButton complaintsBtn = createSidebarButton("Complaints");
+        complaintsBtn.setBounds(15, 152, 190, 42);
+        complaintsBtn.addActionListener(e -> showView("COMPLAINTS"));
+        sidebar.add(complaintsBtn);
 
-        // Logout Button placed at bottom
-        sidebar.add(Box.createVerticalGlue());
+        JButton paymentsBtn = createSidebarButton("Payments");
+        paymentsBtn.setBounds(15, 204, 190, 42);
+        paymentsBtn.addActionListener(e -> showView("PAYMENTS"));
+        sidebar.add(paymentsBtn);
 
+        JButton refreshBtn = createSidebarButton("Refresh Data");
+        refreshBtn.setBounds(15, 256, 190, 42);
+        refreshBtn.addActionListener(e -> refreshCurrentView());
+        sidebar.add(refreshBtn);
+
+        // Logout Button placed at the bottom
         JButton logoutBtn = new JButton("Logout");
-        logoutBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        logoutBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        logoutBtn.setBounds(15, 650, 190, 40);
         logoutBtn.setBackground(new Color(95, 55, 45));
         logoutBtn.setForeground(CREAM);
         logoutBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
         logoutBtn.setFocusPainted(false);
-        logoutBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        logoutBtn.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(135, 75, 60), 1),
-                BorderFactory.createEmptyBorder(8, 14, 8, 14)));
+        logoutBtn.setBorder(BorderFactory.createLineBorder(new Color(135, 75, 60), 1));
         logoutBtn.addActionListener(e -> {
             new WelcomeFrame();
             dispose();
@@ -535,30 +530,21 @@ public class ResidentDashboard extends JFrame {
     // ==========================================
     // HELPER UI METHODS
     // ==========================================
-    private JButton createMenuItem(String text, Runnable action) {
+    private JButton createSidebarButton(String text) {
         JButton b = new JButton(text);
-        b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
-        b.setAlignmentX(Component.CENTER_ALIGNMENT);
-        b.setHorizontalAlignment(SwingConstants.LEFT);
         b.setBackground(new Color(68, 46, 35));
         b.setForeground(CREAM);
         b.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         b.setFocusPainted(false);
-        b.setOpaque(true);
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        b.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(98, 70, 54), 1),
-                BorderFactory.createEmptyBorder(9, 16, 9, 16)));
-        b.addActionListener(e -> action.run());
+        b.setHorizontalAlignment(SwingConstants.LEFT);
+        b.setBorder(BorderFactory.createLineBorder(new Color(98, 70, 54), 1));
         return b;
     }
 
     private JPanel createCard(String title, JLabel valueLabel) {
-        JPanel p = new JPanel(new BorderLayout(0, 13));
+        JPanel p = new JPanel(new BorderLayout(0, 10));
         p.setBackground(new Color(242, 231, 215));
-        p.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(233, 218, 197)),
-                BorderFactory.createEmptyBorder(17, 19, 17, 15)));
+        p.setBorder(BorderFactory.createLineBorder(new Color(233, 218, 197), 1));
 
         JLabel titleLbl = new JLabel(title);
         titleLbl.setForeground(new Color(115, 82, 56));
