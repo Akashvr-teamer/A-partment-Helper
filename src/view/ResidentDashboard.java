@@ -60,40 +60,62 @@ public class ResidentDashboard extends JFrame {
 
         // Sidebar Navigation
         JPanel sidebar = new JPanel();
-        sidebar.setPreferredSize(new Dimension(205, 10));
+        sidebar.setPreferredSize(new Dimension(220, 10));
         sidebar.setBackground(COFFEE);
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
+        sidebar.setBorder(BorderFactory.createEmptyBorder(0, 14, 20, 14));
         root.add(sidebar, BorderLayout.WEST);
 
-        JLabel logo = new JLabel("  A-partment");
+        // App Name Header
+        JPanel logoPanel = new JPanel();
+        logoPanel.setOpaque(false);
+        logoPanel.setLayout(new BoxLayout(logoPanel, BoxLayout.Y_AXIS));
+        logoPanel.setBorder(BorderFactory.createEmptyBorder(22, 4, 24, 4));
+        logoPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel logo = new JLabel("A-partment");
         logo.setForeground(CREAM);
         logo.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        logo.setBorder(BorderFactory.createEmptyBorder(26, 10, 34, 5));
-        sidebar.add(logo);
+        logo.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel logoSub = new JLabel("Resident Portal");
+        logoSub.setForeground(new Color(185, 155, 130));
+        logoSub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        logoSub.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        logoPanel.add(logo);
+        logoPanel.add(Box.createVerticalStrut(3));
+        logoPanel.add(logoSub);
+        sidebar.add(logoPanel);
 
         // Sidebar buttons switch views inside the main container
         sidebar.add(createMenuItem("Overview", () -> showView("OVERVIEW")));
+        sidebar.add(Box.createVerticalStrut(8));
         sidebar.add(createMenuItem("Complaints", () -> showView("COMPLAINTS")));
+        sidebar.add(Box.createVerticalStrut(8));
         sidebar.add(createMenuItem("Payments", () -> showView("PAYMENTS")));
+        sidebar.add(Box.createVerticalStrut(8));
         sidebar.add(createMenuItem("Refresh data", this::refreshCurrentView));
+
+        // Logout Button placed at bottom
+        sidebar.add(Box.createVerticalGlue());
 
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        logoutBtn.setMaximumSize(new Dimension(155, 40));
-        logoutBtn.setBackground(new Color(95, 67, 48));
+        logoutBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        logoutBtn.setBackground(new Color(95, 55, 45));
         logoutBtn.setForeground(CREAM);
+        logoutBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
         logoutBtn.setFocusPainted(false);
+        logoutBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        logoutBtn.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(135, 75, 60), 1),
+                BorderFactory.createEmptyBorder(8, 14, 8, 14)));
         logoutBtn.addActionListener(e -> {
             new WelcomeFrame();
             dispose();
         });
-
-        sidebar.add(Box.createVerticalGlue());
-        JPanel logoutPanel = new JPanel();
-        logoutPanel.setOpaque(false);
-        logoutPanel.setBorder(BorderFactory.createEmptyBorder(24, 0, 22, 0));
-        logoutPanel.add(logoutBtn);
-        sidebar.add(logoutPanel);
+        sidebar.add(logoutBtn);
 
         // Add Views into the CardLayout Container
         mainContainer.setOpaque(false);
@@ -515,15 +537,18 @@ public class ResidentDashboard extends JFrame {
     // ==========================================
     private JButton createMenuItem(String text, Runnable action) {
         JButton b = new JButton(text);
-        b.setMaximumSize(new Dimension(205, 44));
+        b.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
         b.setAlignmentX(Component.CENTER_ALIGNMENT);
         b.setHorizontalAlignment(SwingConstants.LEFT);
-        b.setBorder(BorderFactory.createEmptyBorder(9, 27, 9, 8));
-        b.setBackground(COFFEE);
+        b.setBackground(new Color(68, 46, 35));
         b.setForeground(CREAM);
         b.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         b.setFocusPainted(false);
         b.setOpaque(true);
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        b.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(98, 70, 54), 1),
+                BorderFactory.createEmptyBorder(9, 16, 9, 16)));
         b.addActionListener(e -> action.run());
         return b;
     }
