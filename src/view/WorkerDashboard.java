@@ -29,9 +29,9 @@ public class WorkerDashboard extends JFrame {
 
         setTitle("A-partment Helper | Worker Desk");
         setSize(1180, 760);
-        setMinimumSize(new Dimension(950, 650));
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setResizable(false);
 
         JPanel root = new JPanel(new BorderLayout(18, 18));
         root.setBackground(CREAM);

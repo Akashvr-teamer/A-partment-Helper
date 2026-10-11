@@ -93,17 +93,17 @@ public class ResidentDashboard extends JFrame {
         sidebar.add(logoSub);
 
         // Sidebar buttons
-        JButton overviewBtn = createSidebarButton("Overview");
+        JButton overviewBtn = createSidebarButton("Overview", getNavIcon("OVERVIEW"));
         overviewBtn.setBounds(15, 100, 190, 42);
         overviewBtn.addActionListener(e -> showView("OVERVIEW"));
         sidebar.add(overviewBtn);
 
-        JButton complaintsBtn = createSidebarButton("Complaints");
+        JButton complaintsBtn = createSidebarButton("Complaints", getNavIcon("COMPLAINTS"));
         complaintsBtn.setBounds(15, 152, 190, 42);
         complaintsBtn.addActionListener(e -> showView("COMPLAINTS"));
         sidebar.add(complaintsBtn);
 
-        JButton paymentsBtn = createSidebarButton("Payments");
+        JButton paymentsBtn = createSidebarButton("Payments", getNavIcon("PAYMENTS"));
         paymentsBtn.setBounds(15, 204, 190, 42);
         paymentsBtn.addActionListener(e -> showView("PAYMENTS"));
         sidebar.add(paymentsBtn);
@@ -111,11 +111,16 @@ public class ResidentDashboard extends JFrame {
         // Logout Button placed at the bottom
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.setBounds(15, 650, 190, 40);
+        logoutBtn.setIcon(getNavIcon("LOGOUT"));
+        logoutBtn.setIconTextGap(14);
+        logoutBtn.setMargin(new Insets(0, 16, 0, 10));
+        logoutBtn.setHorizontalAlignment(SwingConstants.LEFT);
         logoutBtn.setBackground(new Color(95, 55, 45));
         logoutBtn.setForeground(CREAM);
         logoutBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
         logoutBtn.setFocusPainted(false);
         logoutBtn.setBorder(BorderFactory.createLineBorder(new Color(135, 75, 60), 1));
+        logoutBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         logoutBtn.addActionListener(e -> {
             new WelcomeFrame();
             dispose();
@@ -258,27 +263,27 @@ public class ResidentDashboard extends JFrame {
         // Top Header matching COFFEE theme (no close button)
         panel.add(createTopBar("Maintenance Complaints Portal"));
 
-        // Left Panel: Raise New Complaint Form
+        // Left Panel: Raise New Complaint Form (Compact to give history more room)
         JPanel formPanel = new JPanel(null);
-        formPanel.setBounds(30, 85, 335, 620);
+        formPanel.setBounds(25, 80, 275, 630);
         formPanel.setBackground(Color.WHITE);
         formPanel.setBorder(BorderFactory.createLineBorder(LINE, 1));
         panel.add(formPanel);
 
         JLabel formTitle = new JLabel("Raise New Complaint");
-        formTitle.setBounds(20, 15, 290, 25);
+        formTitle.setBounds(18, 15, 240, 25);
         formTitle.setFont(new Font("Segoe UI", Font.BOLD, 17));
         formTitle.setForeground(COFFEE);
         formPanel.add(formTitle);
 
         JLabel titleLbl = new JLabel("Complaint Title *");
-        titleLbl.setBounds(20, 50, 295, 20);
+        titleLbl.setBounds(18, 50, 240, 20);
         titleLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
         titleLbl.setForeground(new Color(115, 82, 56));
         formPanel.add(titleLbl);
 
         complaintTitleField = new JTextField();
-        complaintTitleField.setBounds(20, 72, 295, 32);
+        complaintTitleField.setBounds(18, 72, 238, 32);
         complaintTitleField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         complaintTitleField.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(LINE, 1),
@@ -286,21 +291,21 @@ public class ResidentDashboard extends JFrame {
         formPanel.add(complaintTitleField);
 
         JLabel catLbl = new JLabel("Category *");
-        catLbl.setBounds(20, 114, 295, 20);
+        catLbl.setBounds(18, 114, 240, 20);
         catLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
         catLbl.setForeground(new Color(115, 82, 56));
         formPanel.add(catLbl);
 
         String[] categories = {"Plumbing", "Electrical", "Carpentry", "Lift", "Pest Control", "Cleaning", "Painting", "General Maintenance"};
         complaintCategoryCombo = new JComboBox<>(categories);
-        complaintCategoryCombo.setBounds(20, 136, 295, 32);
+        complaintCategoryCombo.setBounds(18, 136, 238, 32);
         complaintCategoryCombo.setBackground(Color.WHITE);
         complaintCategoryCombo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         complaintCategoryCombo.setBorder(BorderFactory.createLineBorder(LINE, 1));
         formPanel.add(complaintCategoryCombo);
 
         JLabel dueLbl = new JLabel("Requested Resolution Due Date *");
-        dueLbl.setBounds(20, 178, 295, 20);
+        dueLbl.setBounds(18, 178, 240, 20);
         dueLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
         dueLbl.setForeground(new Color(115, 82, 56));
         formPanel.add(dueLbl);
@@ -313,13 +318,13 @@ public class ResidentDashboard extends JFrame {
         SpinnerDateModel dateModel = new SpinnerDateModel(defaultDue, today, null, Calendar.DAY_OF_MONTH);
         complaintDueDateSpinner = new JSpinner(dateModel);
         complaintDueDateSpinner.setEditor(new JSpinner.DateEditor(complaintDueDateSpinner, "yyyy-MM-dd"));
-        complaintDueDateSpinner.setBounds(20, 200, 295, 32);
+        complaintDueDateSpinner.setBounds(18, 200, 238, 32);
         complaintDueDateSpinner.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         complaintDueDateSpinner.setBorder(BorderFactory.createLineBorder(LINE, 1));
         formPanel.add(complaintDueDateSpinner);
 
         JLabel descLbl = new JLabel("Description / Issue Details");
-        descLbl.setBounds(20, 242, 295, 20);
+        descLbl.setBounds(18, 242, 240, 20);
         descLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
         descLbl.setForeground(new Color(115, 82, 56));
         formPanel.add(descLbl);
@@ -329,30 +334,30 @@ public class ResidentDashboard extends JFrame {
         complaintDescArea.setLineWrap(true);
         complaintDescArea.setWrapStyleWord(true);
         JScrollPane descScroll = new JScrollPane(complaintDescArea);
-        descScroll.setBounds(20, 264, 295, 260);
+        descScroll.setBounds(18, 264, 238, 265);
         descScroll.setBorder(BorderFactory.createLineBorder(LINE, 1));
         formPanel.add(descScroll);
 
         JButton submitBtn = LoginFrame.button("SUBMIT COMPLAINT");
-        submitBtn.setBounds(20, 545, 295, 44);
+        submitBtn.setBounds(18, 550, 238, 44);
         submitBtn.addActionListener(e -> submitComplaint());
         formPanel.add(submitBtn);
 
-        // Right Panel: Complaint History
+        // Right Panel: Complaint History (Expanded to 620px for extra breathing room)
         JPanel historyPanel = new JPanel(null);
-        historyPanel.setBounds(385, 85, 545, 620);
+        historyPanel.setBounds(315, 80, 620, 630);
         historyPanel.setBackground(Color.WHITE);
         historyPanel.setBorder(BorderFactory.createLineBorder(LINE, 1));
         panel.add(historyPanel);
 
         JLabel histTitle = new JLabel("My Complaint History & Overdue Status");
-        histTitle.setBounds(20, 15, 370, 25);
+        histTitle.setBounds(20, 15, 430, 25);
         histTitle.setFont(new Font("Segoe UI", Font.BOLD, 17));
         histTitle.setForeground(COFFEE);
         historyPanel.add(histTitle);
 
         JButton refreshBtn = new JButton("Refresh");
-        refreshBtn.setBounds(430, 14, 95, 28);
+        refreshBtn.setBounds(510, 14, 90, 28);
         refreshBtn.setBackground(new Color(242, 231, 215));
         refreshBtn.setForeground(COFFEE);
         refreshBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -362,7 +367,7 @@ public class ResidentDashboard extends JFrame {
         historyPanel.add(refreshBtn);
 
         complaintsSummaryLabel = new JLabel("Loading complaints...");
-        complaintsSummaryLabel.setBounds(20, 43, 505, 20);
+        complaintsSummaryLabel.setBounds(20, 43, 580, 20);
         complaintsSummaryLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         complaintsSummaryLabel.setForeground(new Color(126, 105, 86));
         historyPanel.add(complaintsSummaryLabel);
@@ -379,10 +384,10 @@ public class ResidentDashboard extends JFrame {
         complaintsTable.getTableHeader().setForeground(COFFEE);
 
         complaintsTable.getColumnModel().getColumn(0).setPreferredWidth(35);
-        complaintsTable.getColumnModel().getColumn(1).setPreferredWidth(135);
-        complaintsTable.getColumnModel().getColumn(2).setPreferredWidth(80);
-        complaintsTable.getColumnModel().getColumn(3).setPreferredWidth(90);
-        complaintsTable.getColumnModel().getColumn(4).setPreferredWidth(80);
+        complaintsTable.getColumnModel().getColumn(1).setPreferredWidth(165);
+        complaintsTable.getColumnModel().getColumn(2).setPreferredWidth(85);
+        complaintsTable.getColumnModel().getColumn(3).setPreferredWidth(95);
+        complaintsTable.getColumnModel().getColumn(4).setPreferredWidth(85);
         complaintsTable.getColumnModel().getColumn(5).setPreferredWidth(85);
         complaintsTable.getColumnModel().getColumn(6).setPreferredWidth(95);
 
@@ -413,7 +418,7 @@ public class ResidentDashboard extends JFrame {
         });
 
         JScrollPane scrollPane = new JScrollPane(complaintsTable);
-        scrollPane.setBounds(20, 70, 505, 525);
+        scrollPane.setBounds(20, 70, 580, 540);
         scrollPane.setBorder(BorderFactory.createLineBorder(LINE, 1));
         historyPanel.add(scrollPane);
 
@@ -874,15 +879,77 @@ public class ResidentDashboard extends JFrame {
     // ==========================================
     // HELPER UI METHODS
     // ==========================================
-    private JButton createSidebarButton(String text) {
+    private JButton createSidebarButton(String text, Icon icon) {
         JButton b = new JButton(text);
+        b.setIcon(icon);
+        b.setIconTextGap(14);
+        b.setMargin(new Insets(0, 16, 0, 10));
         b.setBackground(new Color(68, 46, 35));
         b.setForeground(CREAM);
-        b.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        b.setFont(new Font("Segoe UI", Font.BOLD, 13));
         b.setFocusPainted(false);
         b.setHorizontalAlignment(SwingConstants.LEFT);
         b.setBorder(BorderFactory.createLineBorder(new Color(98, 70, 54), 1));
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return b;
+    }
+
+    private static Icon getNavIcon(String type) {
+        return new SwingNavIcon(type);
+    }
+
+    // Custom Icon implementation using Java Swing Icon interface
+    private static class SwingNavIcon implements Icon {
+        private final String type;
+        private final int size = 18;
+
+        public SwingNavIcon(String type) {
+            this.type = type;
+        }
+
+        @Override
+        public int getIconWidth() { return size; }
+
+        @Override
+        public int getIconHeight() { return size; }
+
+        @Override
+        public void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(CREAM);
+
+            if ("OVERVIEW".equals(type)) {
+                // 4-tile dashboard grid
+                g2.fillRoundRect(x, y, 7, 7, 2, 2);
+                g2.fillRoundRect(x + 9, y, 7, 7, 2, 2);
+                g2.fillRoundRect(x, y + 9, 7, 7, 2, 2);
+                g2.fillRoundRect(x + 9, y + 9, 7, 7, 2, 2);
+            } else if ("COMPLAINTS".equals(type)) {
+                // Clipboard with checklist lines
+                g2.setStroke(new BasicStroke(1.8f));
+                g2.drawRoundRect(x + 2, y + 3, 14, 13, 3, 3);
+                g2.fillRect(x + 6, y + 1, 6, 3);
+                g2.drawLine(x + 5, y + 7, x + 13, y + 7);
+                g2.drawLine(x + 5, y + 10, x + 13, y + 10);
+            } else if ("PAYMENTS".equals(type)) {
+                // Credit card with magnetic stripe and chip
+                g2.setStroke(new BasicStroke(1.8f));
+                g2.drawRoundRect(x + 1, y + 2, 16, 13, 3, 3);
+                g2.fillRect(x + 1, y + 5, 16, 3);
+                g2.fillRect(x + 3, y + 10, 4, 3);
+            } else if ("LOGOUT".equals(type)) {
+                // Door outline and exit arrow
+                g2.setStroke(new BasicStroke(1.8f));
+                g2.drawLine(x + 9, y + 2, x + 3, y + 2);
+                g2.drawLine(x + 3, y + 2, x + 3, y + 16);
+                g2.drawLine(x + 3, y + 16, x + 9, y + 16);
+                g2.drawLine(x + 7, y + 9, x + 15, y + 9);
+                g2.drawLine(x + 12, y + 6, x + 15, y + 9);
+                g2.drawLine(x + 12, y + 12, x + 15, y + 9);
+            }
+            g2.dispose();
+        }
     }
 
     private JPanel createCard(String title, JLabel valueLabel) {
