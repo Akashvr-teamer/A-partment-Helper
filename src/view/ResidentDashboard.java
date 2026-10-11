@@ -93,11 +93,6 @@ public class ResidentDashboard extends JFrame {
         paymentsBtn.addActionListener(e -> showView("PAYMENTS"));
         sidebar.add(paymentsBtn);
 
-        JButton refreshBtn = createSidebarButton("Refresh Data");
-        refreshBtn.setBounds(15, 256, 190, 42);
-        refreshBtn.addActionListener(e -> refreshCurrentView());
-        sidebar.add(refreshBtn);
-
         // Logout Button placed at the bottom
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.setBounds(15, 650, 190, 40);
@@ -140,10 +135,6 @@ public class ResidentDashboard extends JFrame {
         } else if ("PAYMENTS".equals(viewName)) {
             loadPayments();
         }
-    }
-
-    private void refreshCurrentView() {
-        showView(currentView);
     }
 
     // ==========================================
