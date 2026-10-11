@@ -31,12 +31,13 @@ CREATE TABLE IF NOT EXISTS visitors (
   has_vehicle BOOLEAN DEFAULT FALSE,
   vehicle_no VARCHAR(20),
   access_hash VARCHAR(64) NOT NULL,
+  exit_code VARCHAR(10),
   valid_from TIMESTAMP NOT NULL,
   valid_until TIMESTAMP NOT NULL,
   entry_time TIMESTAMP,
   exit_time TIMESTAMP,
   status VARCHAR(20) DEFAULT 'PENDING' CHECK(status IN ('PENDING','ENTERED','EXITED','EXPIRED')),
-  parking_slot VARCHAR(10),
+  parking_slot VARCHAR(15),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CHECK(valid_until > valid_from)
 );
@@ -88,15 +89,13 @@ INSERT INTO workers(full_name, email, phone, worker_type, password)
 VALUES('Guard Ramesh', 'worker@example.com', '9123456780', 'Security', '1234')
 ON CONFLICT(email) DO NOTHING;
 
-INSERT INTO parking(slot_number, parking_type, status, resident_id)
-SELECT 'A-01', 'RESIDENT', 'OCCUPIED', r.resident_id FROM residents r WHERE r.email = 'akash@example.com'
-ON CONFLICT(slot_number) DO NOTHING;
-
 INSERT INTO parking(slot_number, parking_type, status)
 VALUES('V-01', 'VISITOR', 'AVAILABLE'),
       ('V-02', 'VISITOR', 'AVAILABLE'),
       ('V-03', 'VISITOR', 'AVAILABLE'),
-      ('V-04', 'VISITOR', 'AVAILABLE')
+      ('V-04', 'VISITOR', 'AVAILABLE'),
+      ('V-05', 'VISITOR', 'AVAILABLE'),
+      ('V-06', 'VISITOR', 'AVAILABLE')
 ON CONFLICT(slot_number) DO NOTHING;
 
 INSERT INTO payments(resident_id, month_year, amount, due_date, status)

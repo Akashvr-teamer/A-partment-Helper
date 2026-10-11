@@ -42,16 +42,12 @@ VALUES
 INSERT INTO parking
 (slot_number, parking_type, status, resident_id)
 VALUES
-('A-01', 'RESIDENT', 'OCCUPIED', 1),
-('A-02', 'RESIDENT', 'OCCUPIED', 2),
-('A-03', 'RESIDENT', 'AVAILABLE', NULL),
-('A-04', 'RESIDENT', 'AVAILABLE', NULL),
-('A-05', 'RESIDENT', 'AVAILABLE', NULL),
 ('V-01', 'VISITOR', 'AVAILABLE', NULL),
 ('V-02', 'VISITOR', 'AVAILABLE', NULL),
 ('V-03', 'VISITOR', 'AVAILABLE', NULL),
 ('V-04', 'VISITOR', 'AVAILABLE', NULL),
-('V-05', 'VISITOR', 'AVAILABLE', NULL);
+('V-05', 'VISITOR', 'AVAILABLE', NULL),
+('V-06', 'VISITOR', 'AVAILABLE', NULL);
 
 -- ============================================
 -- VISITORS

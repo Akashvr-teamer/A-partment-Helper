@@ -7,13 +7,24 @@ public class CodeGenerator {
 
     private static final String CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
-    // Generates an 8-character pass code formatted as XXXX-XXXX
+    // Generates a 4-character pass code (e.g. K7M2)
     public static String generateCode() {
         SecureRandom random = new SecureRandom();
         StringBuilder code = new StringBuilder();
 
-        for (int i = 0; i < 8; i++) {
-            if (i == 4) code.append("-");
+        for (int i = 0; i < 4; i++) {
+            code.append(CHARS.charAt(random.nextInt(CHARS.length())));
+        }
+
+        return code.toString();
+    }
+
+    // Generates a 3-character exit code (e.g. 7B2)
+    public static String generateExitCode() {
+        SecureRandom random = new SecureRandom();
+        StringBuilder code = new StringBuilder();
+
+        for (int i = 0; i < 3; i++) {
             code.append(CHARS.charAt(random.nextInt(CHARS.length())));
         }
 

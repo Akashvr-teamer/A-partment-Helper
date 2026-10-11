@@ -34,7 +34,7 @@ public class VisitorEntryFrame extends JFrame {
         sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         panel.add(sub);
 
-        JLabel label = new JLabel("Access pass code");
+        JLabel label = new JLabel("Pass code (4-char) or Exit code (3-char)");
         label.setBounds(45, 145, 350, 22);
         label.setForeground(CREAM);
         label.setFont(new Font("Segoe UI", Font.BOLD, 13));
@@ -119,51 +119,57 @@ public class VisitorEntryFrame extends JFrame {
                 }
 
                 String assignedSlot = null;
-                // If visitor arrives with vehicle, allocate an available visitor parking slot
+                // If visitor arrives with vehicle, allocate an available visitor parking slot randomly
                 if (hasVehicle) {
                     String parkSql = "SELECT parking_id, slot_number FROM parking " +
-                                     "WHERE parking_type = 'VISITOR' AND status = 'AVAILABLE' ORDER BY slot_number LIMIT 1";
+                                     "WHERE parking_type = 'VISITOR' AND status = 'AVAILABLE' ORDER BY RANDOM() LIMIT 1";
                     try (PreparedStatement parkPs = con.prepareStatement(parkSql);
                          ResultSet parkRs = parkPs.executeQuery()) {
 
-                        if (!parkRs.next()) {
-                            JOptionPane.showMessageDialog(this, "No visitor parking slot available!");
-                            return;
-                        }
+                        if (parkRs.next()) {
+                            int parkingId = parkRs.getInt("parking_id");
+                            assignedSlot = parkRs.getString("slot_number");
 
-                        int parkingId = parkRs.getInt("parking_id");
-                        assignedSlot = parkRs.getString("slot_number");
-
-                        // Mark slot occupied
-                        String updateParkSql = "UPDATE parking SET status = 'OCCUPIED', visitor_id = ? WHERE parking_id = ?";
-                        try (PreparedStatement uPark = con.prepareStatement(updateParkSql)) {
-                            uPark.setInt(1, visitorId);
-                            uPark.setInt(2, parkingId);
-                            uPark.executeUpdate();
-                        }
-
-                        // Save assigned slot on visitor record
-                        String updateSlotSql = "UPDATE visitors SET parking_slot = ? WHERE visitor_id = ?";
-                        try (PreparedStatement uSlot = con.prepareStatement(updateSlotSql)) {
-                            uSlot.setString(1, assignedSlot);
-                            uSlot.setInt(2, visitorId);
-                            uSlot.executeUpdate();
+                            // Mark slot occupied
+                            String updateParkSql = "UPDATE parking SET status = 'OCCUPIED', visitor_id = ? WHERE parking_id = ?";
+                            try (PreparedStatement uPark = con.prepareStatement(updateParkSql)) {
+                                uPark.setInt(1, visitorId);
+                                uPark.setInt(2, parkingId);
+                                uPark.executeUpdate();
+                            }
+                        } else {
+                            // Real-life handling: Visitor parking is full!
+                            assignedSlot = "PARK OUTSIDE";
                         }
                     }
                 }
 
-                // Update visitor status to ENTERED
-                String updateEntrySql = "UPDATE visitors SET status = 'ENTERED', entry_time = CURRENT_TIMESTAMP WHERE visitor_id = ?";
+                // Generate 3-character exit code for fast checkout
+                String exitCode = CodeGenerator.generateExitCode();
+
+                // Update visitor status to ENTERED, record parking slot and exit code
+                String updateEntrySql = "UPDATE visitors SET status = 'ENTERED', entry_time = CURRENT_TIMESTAMP, " +
+                                        "parking_slot = ?, exit_code = ? WHERE visitor_id = ?";
                 try (PreparedStatement uEntry = con.prepareStatement(updateEntrySql)) {
-                    uEntry.setInt(1, visitorId);
+                    uEntry.setString(1, assignedSlot);
+                    uEntry.setString(2, exitCode);
+                    uEntry.setInt(3, visitorId);
                     uEntry.executeUpdate();
                 }
 
-                String msg = "Entry Confirmed! Welcome, " + name + "!";
+                StringBuilder msg = new StringBuilder();
+                msg.append("ENTRY CONFIRMED!\n\nWelcome, ").append(name).append("!\n\n");
                 if (assignedSlot != null) {
-                    msg += "\nAssigned Parking Slot: " + assignedSlot;
+                    if ("PARK OUTSIDE".equals(assignedSlot)) {
+                        msg.append("Parking: VISITOR PARKING FULL\n(Advise visitor to park outside the premises)\n\n");
+                    } else {
+                        msg.append("Assigned Parking Slot: ").append(assignedSlot).append("\n\n");
+                    }
                 }
-                JOptionPane.showMessageDialog(this, msg);
+                msg.append("3-Character Exit Code: ").append(exitCode).append("\n\n");
+                msg.append("Please give this 3-character exit code (").append(exitCode).append(") to the guard when leaving.");
+
+                JOptionPane.showMessageDialog(this, msg.toString());
                 codeField.setText("");
             }
         } catch (Exception ex) {
@@ -175,20 +181,23 @@ public class VisitorEntryFrame extends JFrame {
     private void handleExit() {
         String code = codeField.getText().trim();
         if (code.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter the visitor pass code.");
+            JOptionPane.showMessageDialog(this, "Please enter the visitor exit code or pass code.");
             return;
         }
 
         String hash = CodeGenerator.sha256(code);
-        String selectSql = "SELECT visitor_id, visitor_name, status, parking_slot FROM visitors WHERE access_hash = ?";
+        // Look up by 3-character exit code OR by original pass hash
+        String selectSql = "SELECT visitor_id, visitor_name, status, parking_slot, exit_code " +
+                           "FROM visitors WHERE UPPER(exit_code) = ? OR access_hash = ?";
 
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(selectSql)) {
 
-            ps.setString(1, hash);
+            ps.setString(1, code.toUpperCase());
+            ps.setString(2, hash);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
-                    JOptionPane.showMessageDialog(this, "Invalid pass code.");
+                    JOptionPane.showMessageDialog(this, "Invalid code. Please enter the 3-character exit code or pass code.");
                     return;
                 }
 
@@ -209,16 +218,22 @@ public class VisitorEntryFrame extends JFrame {
                     uExit.executeUpdate();
                 }
 
-                // Free allocated parking slot if any
-                if (slot != null && !slot.isBlank()) {
-                    String freeParkSql = "UPDATE parking SET status = 'AVAILABLE', visitor_id = NULL WHERE slot_number = ? AND parking_type = 'VISITOR'";
+                // Free allocated visitor parking slot if one was assigned inside
+                if (slot != null && !slot.isBlank() && !"PARK OUTSIDE".equalsIgnoreCase(slot)) {
+                    String freeParkSql = "UPDATE parking SET status = 'AVAILABLE', visitor_id = NULL " +
+                                         "WHERE slot_number = ? AND parking_type = 'VISITOR'";
                     try (PreparedStatement uFree = con.prepareStatement(freeParkSql)) {
                         uFree.setString(1, slot);
                         uFree.executeUpdate();
                     }
                 }
 
-                JOptionPane.showMessageDialog(this, "Exit Confirmed! Goodbye, " + name + "!");
+                StringBuilder msg = new StringBuilder();
+                msg.append("EXIT CONFIRMED!\n\nGoodbye, ").append(name).append("!");
+                if (slot != null && !slot.isBlank() && !"PARK OUTSIDE".equalsIgnoreCase(slot)) {
+                    msg.append("\nVisitor parking slot ").append(slot).append(" is now AVAILABLE.");
+                }
+                JOptionPane.showMessageDialog(this, msg.toString());
                 codeField.setText("");
             }
         } catch (Exception ex) {

@@ -18,14 +18,6 @@ public class WorkerDashboard extends JFrame {
         }
     };
 
-    // Table model for parking slots
-    private final DefaultTableModel parkingModel = new DefaultTableModel(
-            new String[] { "Slot", "Type", "Status", "Occupant" }, 0) {
-        public boolean isCellEditable(int r, int c) {
-            return false;
-        }
-    };
-
     private final JLabel statusLabel = new JLabel("Loading...");
     private static final Color COFFEE = new Color(55, 36, 27);
     private static final Color CREAM = new Color(250, 245, 235);
@@ -58,7 +50,7 @@ public class WorkerDashboard extends JFrame {
         title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(COFFEE);
 
-        JLabel sub = new JLabel("Welcome, " + workerName + "  ·  Complaints and parking overview");
+        JLabel sub = new JLabel("Welcome, " + workerName + "  ·  Maintenance complaints overview");
         sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         sub.setForeground(new Color(126, 105, 86));
 
@@ -77,21 +69,11 @@ public class WorkerDashboard extends JFrame {
         head.add(headRight, BorderLayout.EAST);
         root.add(head, BorderLayout.NORTH);
 
-        // Center Tables: Split between Complaints (top) and Parking (bottom)
+        // Center Table: Complaints occupying full height
         JTable complaintsTable = new JTable(complaintsModel);
         styleTable(complaintsTable);
         JPanel complaintsPanel = createSection("Maintenance complaints", new JScrollPane(complaintsTable));
-
-        JTable parkingTable = new JTable(parkingModel);
-        styleTable(parkingTable);
-        JPanel parkingPanel = createSection("Parking occupancy", new JScrollPane(parkingTable));
-
-        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, complaintsPanel, parkingPanel);
-        splitPane.setResizeWeight(0.65);
-        splitPane.setDividerSize(8);
-        splitPane.setBorder(null);
-        splitPane.setOpaque(false);
-        root.add(splitPane, BorderLayout.CENTER);
+        root.add(complaintsPanel, BorderLayout.CENTER);
 
         // Bottom Actions Bar
         JPanel actions = new JPanel(new BorderLayout());
@@ -172,41 +154,23 @@ public class WorkerDashboard extends JFrame {
             try (PreparedStatement ps = con.prepareStatement(complaintsSql);
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    String displayStatus = rs.getString("status");
+                    if (displayStatus != null) {
+                        displayStatus = displayStatus.replace("_", " ");
+                    }
                     complaintsModel.addRow(new Object[] {
                         rs.getInt("complaint_id"),
                         rs.getString("full_name"),
                         rs.getString("apartment_no"),
                         rs.getString("title"),
                         rs.getString("category"),
-                        rs.getString("status"),
+                        displayStatus,
                         rs.getString("worker")
                     });
                 }
             }
 
-            // 2. Fetch parking slots
-            parkingModel.setRowCount(0);
-            String parkingSql =
-                "SELECT p.slot_number, p.parking_type, p.status, " +
-                "       COALESCE(r.full_name, v.visitor_name, '—') AS occupant " +
-                "FROM parking p " +
-                "LEFT JOIN residents r ON r.resident_id = p.resident_id " +
-                "LEFT JOIN visitors v ON v.visitor_id = p.visitor_id " +
-                "ORDER BY p.parking_type, p.slot_number";
-
-            try (PreparedStatement ps = con.prepareStatement(parkingSql);
-                 ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    parkingModel.addRow(new Object[] {
-                        rs.getString("slot_number"),
-                        rs.getString("parking_type"),
-                        rs.getString("status"),
-                        rs.getString("occupant")
-                    });
-                }
-            }
-
-            statusLabel.setText("Updated just now · " + complaintsModel.getRowCount() + " complaints · " + parkingModel.getRowCount() + " parking slots");
+            statusLabel.setText("Updated just now · " + complaintsModel.getRowCount() + " maintenance complaints");
         } catch (Exception ex) {
             statusLabel.setText("Refresh failed");
             LoginFrame.showDbError(ex);

@@ -375,11 +375,15 @@ public class ResidentDashboard extends JFrame {
             ps.setInt(1, residentId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    String displayStatus = rs.getString("status");
+                    if (displayStatus != null) {
+                        displayStatus = displayStatus.replace("_", " ");
+                    }
                     complaintsModel.addRow(new Object[] {
                         rs.getInt("complaint_id"),
                         rs.getString("title"),
                         rs.getString("category"),
-                        rs.getString("status"),
+                        displayStatus,
                         rs.getTimestamp("created_at")
                     });
                 }
