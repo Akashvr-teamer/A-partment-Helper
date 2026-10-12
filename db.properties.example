@@ -1,5 +1,5 @@
 # Copy this file to db.properties and replace the placeholders with your own Supabase credentials.
 # Keep db.properties private; do not commit it to GitHub.
-db.url=jdbc:postgresql://aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require&currentSchema=\"A-partment\"
-db.user="postgres.qjzczawhtqcewdjqbged"
-db.password="Thisisadbpas"
+db.url=jdbc:postgresql://aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require
+db.user=postgres.qjzczawhtqcewdjqbged
+db.password=Thisisadbpas

@@ -1,7 +1,6 @@
 package view;
 
 import database.DBConnection;
-import util.CodeGenerator;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -28,18 +27,17 @@ public class ResidentDashboard extends JFrame {
     private final JLabel maintenanceVal = new JLabel("₹0");
     private final JLabel overviewStatus = new JLabel(" ");
     private final DefaultTableModel visitorModel = new DefaultTableModel(
-            new String[] { "Visitor", "Phone", "Parking", "Status", "Valid Until" }, 0) {
+            new String[] { "ID", "Visitor", "Phone", "Parking", "Status", "Valid Until" }, 0) {
         public boolean isCellEditable(int row, int col) { return false; }
     };
 
     // Complaints UI Components
     private JTextField complaintTitleField;
     private JComboBox<String> complaintCategoryCombo;
-    private JSpinner complaintDueDateSpinner;
     private JTextArea complaintDescArea;
     private JLabel complaintsSummaryLabel;
     private final DefaultTableModel complaintsModel = new DefaultTableModel(
-            new String[] { "ID", "Title", "Category", "Worker", "Due Date", "Status", "Deadline", "Description" }, 0) {
+            new String[] { "ID", "Title", "Category", "Worker", "Status", "Date Logged", "Description" }, 0) {
         public boolean isCellEditable(int row, int col) { return false; }
     };
     private final JTable complaintsTable = new JTable(complaintsModel);
@@ -49,7 +47,7 @@ public class ResidentDashboard extends JFrame {
     private JLabel overdueDuesLbl;
     private JLabel paidCountLbl;
     private final DefaultTableModel paymentsModel = new DefaultTableModel(
-            new String[] { "ID", "Month / Year", "Amount (₹)", "Due Date", "Paid Date", "Payment Method", "Txn ID", "Status", "Overdue Tracking" }, 0) {
+            new String[] { "ID", "Month / Year", "Amount (₹)", "Due Date", "Paid Date", "Payment Method", "Status", "Overdue Tracking" }, 0) {
         public boolean isCellEditable(int row, int col) { return false; }
     };
     private final JTable paymentsTable = new JTable(paymentsModel);
@@ -306,27 +304,8 @@ public class ResidentDashboard extends JFrame {
         complaintCategoryCombo.setBorder(BorderFactory.createLineBorder(LINE, 1));
         formPanel.add(complaintCategoryCombo);
 
-        JLabel dueLbl = new JLabel("Requested Resolution Due Date *");
-        dueLbl.setBounds(18, 178, 240, 20);
-        dueLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        dueLbl.setForeground(new Color(115, 82, 56));
-        formPanel.add(dueLbl);
-
-        Calendar cal = Calendar.getInstance();
-        Date today = cal.getTime();
-        cal.add(Calendar.DAY_OF_MONTH, 3);
-        Date defaultDue = cal.getTime();
-
-        SpinnerDateModel dateModel = new SpinnerDateModel(defaultDue, today, null, Calendar.DAY_OF_MONTH);
-        complaintDueDateSpinner = new JSpinner(dateModel);
-        complaintDueDateSpinner.setEditor(new JSpinner.DateEditor(complaintDueDateSpinner, "yyyy-MM-dd"));
-        complaintDueDateSpinner.setBounds(18, 200, 238, 32);
-        complaintDueDateSpinner.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        complaintDueDateSpinner.setBorder(BorderFactory.createLineBorder(LINE, 1));
-        formPanel.add(complaintDueDateSpinner);
-
         JLabel descLbl = new JLabel("Description / Issue Details");
-        descLbl.setBounds(18, 242, 240, 20);
+        descLbl.setBounds(18, 180, 240, 20);
         descLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
         descLbl.setForeground(new Color(115, 82, 56));
         formPanel.add(descLbl);
@@ -336,7 +315,7 @@ public class ResidentDashboard extends JFrame {
         complaintDescArea.setLineWrap(true);
         complaintDescArea.setWrapStyleWord(true);
         JScrollPane descScroll = new JScrollPane(complaintDescArea);
-        descScroll.setBounds(18, 264, 238, 265);
+        descScroll.setBounds(18, 205, 238, 325);
         descScroll.setBorder(BorderFactory.createLineBorder(LINE, 1));
         formPanel.add(descScroll);
 
@@ -385,34 +364,32 @@ public class ResidentDashboard extends JFrame {
         complaintsTable.getTableHeader().setBackground(new Color(239, 226, 209));
         complaintsTable.getTableHeader().setForeground(COFFEE);
 
-        complaintsTable.getColumnModel().getColumn(0).setPreferredWidth(35);
-        complaintsTable.getColumnModel().getColumn(1).setPreferredWidth(165);
-        complaintsTable.getColumnModel().getColumn(2).setPreferredWidth(85);
-        complaintsTable.getColumnModel().getColumn(3).setPreferredWidth(95);
-        complaintsTable.getColumnModel().getColumn(4).setPreferredWidth(85);
-        complaintsTable.getColumnModel().getColumn(5).setPreferredWidth(85);
-        complaintsTable.getColumnModel().getColumn(6).setPreferredWidth(95);
+        complaintsTable.getColumnModel().getColumn(0).setPreferredWidth(45);
+        complaintsTable.getColumnModel().getColumn(1).setPreferredWidth(175);
+        complaintsTable.getColumnModel().getColumn(2).setPreferredWidth(90);
+        complaintsTable.getColumnModel().getColumn(3).setPreferredWidth(100);
+        complaintsTable.getColumnModel().getColumn(4).setPreferredWidth(90);
+        complaintsTable.getColumnModel().getColumn(5).setPreferredWidth(80);
 
-        // Hide column 7 (Description) from direct table display; read via selection
-        complaintsTable.removeColumn(complaintsTable.getColumnModel().getColumn(7));
+        // Hide column 6 (Description) from direct table display; read via selection
+        complaintsTable.removeColumn(complaintsTable.getColumnModel().getColumn(6));
 
         complaintsTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
-                Object deadlineVal = table.getValueAt(row, 6);
-                Object statusVal = table.getValueAt(row, 5);
+                Object statusVal = table.getValueAt(row, 4);
 
                 if (!isSelected) {
-                    if (deadlineVal != null && deadlineVal.toString().contains("OVERDUE")) {
-                        c.setForeground(new Color(195, 35, 35));
-                        if (col == 5 || col == 6) c.setFont(c.getFont().deriveFont(Font.BOLD));
-                    } else if (statusVal != null && (statusVal.toString().equalsIgnoreCase("RESOLVED") || statusVal.toString().equalsIgnoreCase("COMPLETED"))) {
+                    if (statusVal != null && (statusVal.toString().equalsIgnoreCase("RESOLVED") || statusVal.toString().equalsIgnoreCase("COMPLETED"))) {
                         c.setForeground(new Color(24, 134, 75));
-                        if (col == 5 || col == 6) c.setFont(c.getFont().deriveFont(Font.BOLD));
+                        if (col == 4) c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else if (statusVal != null && statusVal.toString().toUpperCase().contains("IN PROGRESS")) {
                         c.setForeground(new Color(205, 115, 25));
-                        if (col == 5 || col == 6) c.setFont(c.getFont().deriveFont(Font.BOLD));
+                        if (col == 4) c.setFont(c.getFont().deriveFont(Font.BOLD));
+                    } else if (statusVal != null && statusVal.toString().toUpperCase().contains("ASSIGNED")) {
+                        c.setForeground(new Color(29, 111, 173));
+                        if (col == 4) c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else {
                         c.setForeground(COFFEE);
                         c.setFont(c.getFont().deriveFont(Font.PLAIN));
@@ -455,11 +432,12 @@ public class ResidentDashboard extends JFrame {
             if (!e.getValueIsAdjusting()) {
                 int row = complaintsTable.getSelectedRow();
                 if (row >= 0) {
+                    int cId = (int) complaintsModel.getValueAt(row, 0);
                     String title = (String) complaintsModel.getValueAt(row, 1);
                     String cat = (String) complaintsModel.getValueAt(row, 2);
                     String worker = (String) complaintsModel.getValueAt(row, 3);
-                    String desc = (String) complaintsModel.getValueAt(row, 7);
-                    detailHeader.setText("Details for: " + title + " (" + cat + ") · Worker: " + worker);
+                    String desc = (String) complaintsModel.getValueAt(row, 6);
+                    detailHeader.setText("Details for Complaint #" + cId + " — " + title + " (" + cat + ") · Worker: " + worker);
                     detailDescArea.setText(desc != null && !desc.isBlank() ? desc : "No description entered for this complaint.");
                 } else {
                     detailHeader.setText("Complaint Description & Issue Details");
@@ -539,29 +517,28 @@ public class ResidentDashboard extends JFrame {
         paymentsTable.getTableHeader().setBackground(new Color(239, 226, 209));
         paymentsTable.getTableHeader().setForeground(COFFEE);
 
-        paymentsTable.getColumnModel().getColumn(0).setPreferredWidth(40);
-        paymentsTable.getColumnModel().getColumn(1).setPreferredWidth(120);
-        paymentsTable.getColumnModel().getColumn(2).setPreferredWidth(90);
-        paymentsTable.getColumnModel().getColumn(3).setPreferredWidth(85);
-        paymentsTable.getColumnModel().getColumn(4).setPreferredWidth(85);
-        paymentsTable.getColumnModel().getColumn(5).setPreferredWidth(105);
-        paymentsTable.getColumnModel().getColumn(6).setPreferredWidth(120);
-        paymentsTable.getColumnModel().getColumn(7).setPreferredWidth(80);
-        paymentsTable.getColumnModel().getColumn(8).setPreferredWidth(110);
+        paymentsTable.getColumnModel().getColumn(0).setPreferredWidth(45);
+        paymentsTable.getColumnModel().getColumn(1).setPreferredWidth(140);
+        paymentsTable.getColumnModel().getColumn(2).setPreferredWidth(105);
+        paymentsTable.getColumnModel().getColumn(3).setPreferredWidth(95);
+        paymentsTable.getColumnModel().getColumn(4).setPreferredWidth(95);
+        paymentsTable.getColumnModel().getColumn(5).setPreferredWidth(115);
+        paymentsTable.getColumnModel().getColumn(6).setPreferredWidth(110);
+        paymentsTable.getColumnModel().getColumn(7).setPreferredWidth(150);
 
         paymentsTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
-                Object trackingVal = table.getValueAt(row, 8);
+                Object trackingVal = table.getValueAt(row, 7);
 
                 if (!isSelected) {
                     if (trackingVal != null && trackingVal.toString().contains("OVERDUE")) {
                         c.setForeground(new Color(195, 35, 35));
-                        if (col == 7 || col == 8) c.setFont(c.getFont().deriveFont(Font.BOLD));
+                        if (col == 6 || col == 7) c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else if (trackingVal != null && trackingVal.toString().contains("PAID")) {
                         c.setForeground(new Color(24, 134, 75));
-                        if (col == 7 || col == 8) c.setFont(c.getFont().deriveFont(Font.BOLD));
+                        if (col == 6 || col == 7) c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else {
                         c.setForeground(COFFEE);
                         c.setFont(c.getFont().deriveFont(Font.PLAIN));
@@ -625,7 +602,7 @@ public class ResidentDashboard extends JFrame {
             // 2. Fetch visitor records
             visitorModel.setRowCount(0);
             int count = 0;
-            String visitorSql = "SELECT visitor_name, phone, COALESCE(parking_slot, '—') AS slot, status, valid_until " +
+            String visitorSql = "SELECT visitor_id, visitor_name, phone, COALESCE(parking_slot, '—') AS slot, status, valid_until " +
                                 "FROM visitors WHERE resident_id = ? ORDER BY visitor_id DESC";
             try (PreparedStatement ps = con.prepareStatement(visitorSql)) {
                 ps.setInt(1, residentId);
@@ -634,6 +611,7 @@ public class ResidentDashboard extends JFrame {
                         String st = rs.getString("status");
                         if (st != null) st = st.replace("_", " ");
                         visitorModel.addRow(new Object[] {
+                            rs.getInt("visitor_id"),
                             rs.getString("visitor_name"),
                             rs.getString("phone"),
                             rs.getString("slot"),
@@ -671,15 +649,11 @@ public class ResidentDashboard extends JFrame {
         String title = complaintTitleField.getText().trim();
         String category = (String) complaintCategoryCombo.getSelectedItem();
         String description = complaintDescArea.getText().trim();
-        Date selectedDate = (Date) complaintDueDateSpinner.getValue();
 
         if (title.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please enter a complaint title.", "Input Required", JOptionPane.WARNING_MESSAGE);
             return;
         }
-
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        String dueDateStr = sdf.format(selectedDate);
 
         try (Connection con = DBConnection.getConnection()) {
             if (con == null) {
@@ -687,34 +661,37 @@ public class ResidentDashboard extends JFrame {
                 return;
             }
 
-            // Auto-assign worker according to rule:
-            // 1. Look for worker with 0 active tasks (unassigned).
-            // 2. Only look for already-assigned workers if NO workers are unassigned.
             Integer autoWorkerId = AdminDashboard.findWorkerForComplaint(con, category);
 
             String sql;
             if (autoWorkerId != null) {
-                sql = "INSERT INTO complaints (resident_id, title, description, category, due_date, status, worker_id) VALUES (?, ?, ?, ?, ?::DATE, 'ASSIGNED', ?)";
+                sql = "INSERT INTO complaints (resident_id, title, description, category, status, worker_id) VALUES (?, ?, ?, ?, 'ASSIGNED', ?)";
             } else {
-                sql = "INSERT INTO complaints (resident_id, title, description, category, due_date, status) VALUES (?, ?, ?, ?, ?::DATE, 'PENDING')";
+                sql = "INSERT INTO complaints (resident_id, title, description, category, status) VALUES (?, ?, ?, ?, 'PENDING')";
             }
 
-            try (PreparedStatement ps = con.prepareStatement(sql)) {
+            try (PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 ps.setInt(1, residentId);
                 ps.setString(2, title);
                 ps.setString(3, description);
                 ps.setString(4, category);
-                ps.setString(5, dueDateStr);
                 if (autoWorkerId != null) {
-                    ps.setInt(6, autoWorkerId);
+                    ps.setInt(5, autoWorkerId);
                 }
 
                 int rows = ps.executeUpdate();
                 if (rows > 0) {
+                    int generatedId = -1;
+                    try (ResultSet gk = ps.getGeneratedKeys()) {
+                        if (gk.next()) {
+                            generatedId = gk.getInt(1);
+                        }
+                    }
+
                     String notice = autoWorkerId != null
-                            ? "Complaint submitted and automatically assigned to an available technician!"
-                            : "Complaint submitted! Will be assigned as soon as a technician becomes available.";
-                    JOptionPane.showMessageDialog(this, notice + "\nDue Date: " + dueDateStr, "Success", JOptionPane.INFORMATION_MESSAGE);
+                            ? "Complaint #" + generatedId + " submitted successfully!\nAutomatically assigned to an available technician."
+                            : "Complaint #" + generatedId + " submitted successfully!\nWill be assigned as soon as a technician becomes available.";
+                    JOptionPane.showMessageDialog(this, notice, "Complaint Registered", JOptionPane.INFORMATION_MESSAGE);
                     complaintTitleField.setText("");
                     complaintDescArea.setText("");
                     loadComplaints();
@@ -726,11 +703,12 @@ public class ResidentDashboard extends JFrame {
         }
     }
 
-    // Loads complaints list and overdue status
+    // Loads complaints list sorted by ID
     private void loadComplaints() {
         complaintsModel.setRowCount(0);
 
-        String sql = "SELECT c.complaint_id, c.title, c.category, c.due_date, c.status, c.description, " +
+        String sql = "SELECT c.complaint_id, c.title, c.category, c.status, c.description, " +
+                     "c.created_at::DATE AS log_date, " +
                      "COALESCE(w.full_name, 'Unassigned') AS worker_name " +
                      "FROM complaints c " +
                      "LEFT JOIN workers w ON c.worker_id = w.worker_id " +
@@ -738,8 +716,9 @@ public class ResidentDashboard extends JFrame {
                      "ORDER BY c.complaint_id DESC";
 
         int totalCount = 0;
-        int overdueCount = 0;
+        int inProgCount = 0;
         int resolvedCount = 0;
+        int pendingCount = 0;
 
         try (Connection con = DBConnection.getConnection()) {
             if (con == null) {
@@ -750,32 +729,23 @@ public class ResidentDashboard extends JFrame {
             try (PreparedStatement ps = con.prepareStatement(sql)) {
                 ps.setInt(1, residentId);
                 try (ResultSet rs = ps.executeQuery()) {
-                    LocalDate today = LocalDate.now();
-
                     while (rs.next()) {
                         int id = rs.getInt("complaint_id");
                         String title = rs.getString("title");
                         String category = rs.getString("category");
                         String worker = rs.getString("worker_name");
                         String desc = rs.getString("description");
-                        java.sql.Date dueDate = rs.getDate("due_date");
+                        java.sql.Date logDate = rs.getDate("log_date");
                         String rawStatus = rs.getString("status");
                         String displayStatus = rawStatus != null ? rawStatus.replace("_", " ") : "PENDING";
 
                         totalCount++;
-
-                        String deadlineText = "On Schedule";
-                        boolean isResolved = "RESOLVED".equalsIgnoreCase(rawStatus) || "COMPLETED".equalsIgnoreCase(rawStatus);
-
-                        if (isResolved) {
-                            deadlineText = "Completed";
+                        if ("RESOLVED".equalsIgnoreCase(rawStatus) || "COMPLETED".equalsIgnoreCase(rawStatus)) {
                             resolvedCount++;
-                        } else if (dueDate != null) {
-                            LocalDate dueLocal = dueDate.toLocalDate();
-                            if (today.isAfter(dueLocal)) {
-                                deadlineText = "⚠️ OVERDUE";
-                                overdueCount++;
-                            }
+                        } else if ("IN_PROGRESS".equalsIgnoreCase(rawStatus) || "IN PROGRESS".equalsIgnoreCase(rawStatus)) {
+                            inProgCount++;
+                        } else {
+                            pendingCount++;
                         }
 
                         complaintsModel.addRow(new Object[]{
@@ -783,9 +753,8 @@ public class ResidentDashboard extends JFrame {
                                 title,
                                 category,
                                 worker,
-                                dueDate != null ? dueDate.toString() : "Not Set",
                                 displayStatus,
-                                deadlineText,
+                                logDate != null ? logDate.toString() : "-",
                                 desc
                         });
                     }
@@ -793,7 +762,7 @@ public class ResidentDashboard extends JFrame {
             }
 
             if (complaintsSummaryLabel != null) {
-                complaintsSummaryLabel.setText(String.format("Total: %d | Resolved: %d | Overdue: %d", totalCount, resolvedCount, overdueCount));
+                complaintsSummaryLabel.setText(String.format("Total: %d | Resolved: %d | In Progress: %d | Pending: %d", totalCount, resolvedCount, inProgCount, pendingCount));
             }
 
         } catch (Exception e) {
@@ -808,8 +777,8 @@ public class ResidentDashboard extends JFrame {
     private void loadPayments() {
         paymentsModel.setRowCount(0);
 
-        String sql = "SELECT payment_id, month_year, amount, due_date, payment_date, payment_method, transaction_id, status " +
-                     "FROM payments WHERE resident_id = ? ORDER BY due_date DESC, payment_id DESC";
+        String sql = "SELECT payment_id, month_year, amount, due_date, payment_date, payment_method, status " +
+                     "FROM payments WHERE resident_id = ? ORDER BY payment_id DESC";
 
         double totalPendingAmount = 0.0;
         double overdueAmount = 0.0;
@@ -830,7 +799,6 @@ public class ResidentDashboard extends JFrame {
                         java.sql.Date dueDate = rs.getDate("due_date");
                         java.sql.Date paymentDate = rs.getDate("payment_date");
                         String method = rs.getString("payment_method");
-                        String txnId = rs.getString("transaction_id");
                         String status = rs.getString("status");
 
                         String tracking;
@@ -856,7 +824,6 @@ public class ResidentDashboard extends JFrame {
                                 dueDate != null ? dueDate.toString() : "-",
                                 paymentDate != null ? paymentDate.toString() : "-",
                                 method != null ? method : "-",
-                                txnId != null ? txnId : "-",
                                 status != null ? status : "PENDING",
                                 tracking
                         });
@@ -873,7 +840,7 @@ public class ResidentDashboard extends JFrame {
         }
     }
 
-    // Handles bill payment with method selection and txn id generation
+    // Handles bill payment with method selection
     private void processPayment() {
         int selectedRow = paymentsTable.getSelectedRow();
         if (selectedRow == -1) {
@@ -884,7 +851,7 @@ public class ResidentDashboard extends JFrame {
         int paymentId = (int) paymentsModel.getValueAt(selectedRow, 0);
         String monthYear = (String) paymentsModel.getValueAt(selectedRow, 1);
         String amountStr = (String) paymentsModel.getValueAt(selectedRow, 2);
-        String currentStatus = (String) paymentsModel.getValueAt(selectedRow, 7);
+        String currentStatus = (String) paymentsModel.getValueAt(selectedRow, 6);
 
         if ("PAID".equalsIgnoreCase(currentStatus)) {
             JOptionPane.showMessageDialog(this, "This bill (" + monthYear + ") has already been paid.", "Already Paid", JOptionPane.INFORMATION_MESSAGE);
@@ -904,9 +871,7 @@ public class ResidentDashboard extends JFrame {
 
         if (method == null) return; // Cancelled
 
-        String generatedTxn = "TXN-" + (System.currentTimeMillis() % 10000000) + "-" + CodeGenerator.generateCode();
-
-        String updateSql = "UPDATE payments SET status = 'PAID', payment_date = CURRENT_DATE, payment_method = ?, transaction_id = ? WHERE payment_id = ?";
+        String updateSql = "UPDATE payments SET status = 'PAID', payment_date = CURRENT_DATE, payment_method = ? WHERE payment_id = ?";
 
         try (Connection con = DBConnection.getConnection()) {
             if (con == null) {
@@ -916,8 +881,7 @@ public class ResidentDashboard extends JFrame {
 
             try (PreparedStatement ps = con.prepareStatement(updateSql)) {
                 ps.setString(1, method);
-                ps.setString(2, generatedTxn);
-                ps.setInt(3, paymentId);
+                ps.setInt(2, paymentId);
 
                 int rows = ps.executeUpdate();
                 if (rows > 0) {
@@ -925,8 +889,7 @@ public class ResidentDashboard extends JFrame {
                             "Payment Successful!\n\n" +
                             "Month: " + monthYear + "\n" +
                             "Amount: ₹" + amountStr + "\n" +
-                            "Method: " + method + "\n" +
-                            "Transaction ID: " + generatedTxn,
+                            "Method: " + method,
                             "Payment Receipt",
                             JOptionPane.INFORMATION_MESSAGE);
 

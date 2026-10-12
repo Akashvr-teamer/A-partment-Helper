@@ -81,7 +81,6 @@ CREATE TABLE IF NOT EXISTS payments (
   payment_date DATE,
   status VARCHAR(20) DEFAULT 'PENDING' CHECK(status IN ('PENDING','PAID','OVERDUE')),
   payment_method VARCHAR(30),
-  transaction_id VARCHAR(100),
   payment_type VARCHAR(50) DEFAULT 'MAINTENANCE',
   complaint_id INT REFERENCES complaints(complaint_id) ON DELETE SET NULL
 );

@@ -155,8 +155,7 @@ INSERT INTO payments
     due_date,
     payment_date,
     status,
-    payment_method,
-    transaction_id
+    payment_method
 )
 VALUES
 (
@@ -166,8 +165,7 @@ VALUES
     '2026-09-10',
     '2026-09-08',
     'PAID',
-    'UPI',
-    'UPI20260908001'
+    'UPI'
 ),
 (
     2,
@@ -176,7 +174,6 @@ VALUES
     '2026-09-10',
     NULL,
     'PENDING',
-    NULL,
     NULL
 ),
 (
@@ -186,6 +183,5 @@ VALUES
     '2026-09-10',
     NULL,
     'OVERDUE',
-    NULL,
     NULL
 );

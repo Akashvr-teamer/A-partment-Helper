@@ -2,6 +2,7 @@ package view;
 
 import database.DBConnection;
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.*;
@@ -11,14 +12,22 @@ public class WorkerDashboard extends JFrame {
     private final String workerName;
 
     // Table model for maintenance complaints
+    // Columns: ID, Resident, Apartment, Title, Category, Status, Assigned Worker, Description (hidden), Worker ID (hidden)
     private final DefaultTableModel complaintsModel = new DefaultTableModel(
-            new String[] { "ID", "Resident", "Apartment", "Title", "Category", "Status", "Assigned Worker" }, 0) {
+            new String[] { "ID", "Resident", "Apartment", "Title", "Category", "Status", "Assigned Worker", "Description", "Worker ID" }, 0) {
         public boolean isCellEditable(int r, int c) {
             return false;
         }
     };
 
     private final JLabel statusLabel = new JLabel("Loading...");
+    private final JLabel detailHeader = new JLabel("Work Description & Issue Details (Select a complaint row to view)");
+    private final JTextArea detailDescArea = new JTextArea("Select a complaint row above to read the resident's issue description.");
+    private final JButton claimBtn;
+    private final JButton progressBtn;
+    private final JButton completeBtn;
+    private final JTable complaintsTable;
+
     private static final Color COFFEE = new Color(55, 36, 27);
     private static final Color CREAM = new Color(250, 245, 235);
     private static final Color LINE = new Color(229, 216, 199);
@@ -28,14 +37,14 @@ public class WorkerDashboard extends JFrame {
         this.workerName = name;
 
         setTitle("A-partment Helper | Worker Desk");
-        setSize(1180, 760);
+        setSize(1180, 780);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setResizable(false);
 
-        JPanel root = new JPanel(new BorderLayout(18, 18));
+        JPanel root = new JPanel(new BorderLayout(18, 16));
         root.setBackground(CREAM);
-        root.setBorder(BorderFactory.createEmptyBorder(24, 28, 22, 28));
+        root.setBorder(BorderFactory.createEmptyBorder(22, 28, 20, 28));
         setContentPane(root);
 
         // Header Section
@@ -50,7 +59,7 @@ public class WorkerDashboard extends JFrame {
         title.setFont(new Font("Segoe UI", Font.BOLD, 28));
         title.setForeground(COFFEE);
 
-        JLabel sub = new JLabel("Welcome, " + workerName + "  ·  Maintenance complaints overview");
+        JLabel sub = new JLabel("Welcome, " + workerName + "  ·  Technician ID: #" + workerId + "  ·  Maintenance complaints overview");
         sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         sub.setForeground(new Color(126, 105, 86));
 
@@ -69,10 +78,49 @@ public class WorkerDashboard extends JFrame {
         head.add(headRight, BorderLayout.EAST);
         root.add(head, BorderLayout.NORTH);
 
-        // Center Table: Complaints occupying full height
-        JTable complaintsTable = new JTable(complaintsModel);
+        // Center: Complaints Table + Issue Description Panel
+        complaintsTable = new JTable(complaintsModel);
         styleTable(complaintsTable);
-        JPanel complaintsPanel = createSection("Maintenance complaints", new JScrollPane(complaintsTable));
+
+        // Hide column 8 (Worker ID) and column 7 (Description) from direct table display
+        complaintsTable.removeColumn(complaintsTable.getColumnModel().getColumn(8));
+        complaintsTable.removeColumn(complaintsTable.getColumnModel().getColumn(7));
+
+        complaintsTable.getColumnModel().getColumn(0).setPreferredWidth(45);
+        complaintsTable.getColumnModel().getColumn(1).setPreferredWidth(160);
+        complaintsTable.getColumnModel().getColumn(2).setPreferredWidth(90);
+        complaintsTable.getColumnModel().getColumn(3).setPreferredWidth(210);
+        complaintsTable.getColumnModel().getColumn(4).setPreferredWidth(110);
+        complaintsTable.getColumnModel().getColumn(5).setPreferredWidth(110);
+        complaintsTable.getColumnModel().getColumn(6).setPreferredWidth(160);
+
+        // Description / Issue Details Box
+        JPanel detailBox = new JPanel(new BorderLayout(0, 6));
+        detailBox.setBackground(new Color(253, 250, 246));
+        detailBox.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(LINE, 1),
+                BorderFactory.createEmptyBorder(10, 14, 10, 14)));
+        detailBox.setPreferredSize(new Dimension(100, 155));
+
+        detailHeader.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        detailHeader.setForeground(COFFEE);
+        detailBox.add(detailHeader, BorderLayout.NORTH);
+
+        detailDescArea.setEditable(false);
+        detailDescArea.setLineWrap(true);
+        detailDescArea.setWrapStyleWord(true);
+        detailDescArea.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        detailDescArea.setBackground(Color.WHITE);
+        JScrollPane descScroll = new JScrollPane(detailDescArea);
+        descScroll.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        detailBox.add(descScroll, BorderLayout.CENTER);
+
+        JPanel centerPanel = new JPanel(new BorderLayout(0, 12));
+        centerPanel.setOpaque(false);
+        centerPanel.add(new JScrollPane(complaintsTable), BorderLayout.CENTER);
+        centerPanel.add(detailBox, BorderLayout.SOUTH);
+
+        JPanel complaintsPanel = createSection("Maintenance complaints", centerPanel);
         root.add(complaintsPanel, BorderLayout.CENTER);
 
         // Bottom Actions Bar
@@ -83,9 +131,15 @@ public class WorkerDashboard extends JFrame {
 
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         buttons.setOpaque(false);
-        JButton claimBtn = LoginFrame.button("CLAIM SELECTED");
-        JButton progressBtn = LoginFrame.button("MARK IN PROGRESS");
-        JButton completeBtn = LoginFrame.button("MARK COMPLETED");
+        claimBtn = LoginFrame.button("CLAIM SELECTED");
+        progressBtn = LoginFrame.button("MARK IN PROGRESS");
+        completeBtn = LoginFrame.button("MARK COMPLETED");
+
+        // Initially disabled until row selection
+        claimBtn.setEnabled(false);
+        progressBtn.setEnabled(false);
+        completeBtn.setEnabled(false);
+
         buttons.add(claimBtn);
         buttons.add(progressBtn);
         buttons.add(completeBtn);
@@ -103,9 +157,61 @@ public class WorkerDashboard extends JFrame {
         progressBtn.addActionListener(e -> updateComplaintStatus(complaintsTable, "IN_PROGRESS"));
         completeBtn.addActionListener(e -> updateComplaintStatus(complaintsTable, "COMPLETED"));
 
+        // Row Selection Listener: update description and button states
+        complaintsTable.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                updateSelectionState();
+            }
+        });
+
         // Load initial data
         loadData();
         setVisible(true);
+    }
+
+    private void updateSelectionState() {
+        int selectedRow = complaintsTable.getSelectedRow();
+        if (selectedRow < 0) {
+            claimBtn.setEnabled(false);
+            progressBtn.setEnabled(false);
+            completeBtn.setEnabled(false);
+            detailHeader.setText("Work Description & Issue Details (Select a complaint row above to view)");
+            detailDescArea.setText("Select a complaint row to view the resident's issue description.");
+            return;
+        }
+
+        int modelRow = complaintsTable.convertRowIndexToModel(selectedRow);
+        int complaintId = (int) complaintsModel.getValueAt(modelRow, 0);
+        String resName = (String) complaintsModel.getValueAt(modelRow, 1);
+        String apt = (String) complaintsModel.getValueAt(modelRow, 2);
+        String title = (String) complaintsModel.getValueAt(modelRow, 3);
+        String cat = (String) complaintsModel.getValueAt(modelRow, 4);
+        String status = String.valueOf(complaintsModel.getValueAt(modelRow, 5)).trim();
+        String assignedWorkerName = (String) complaintsModel.getValueAt(modelRow, 6);
+        String desc = (String) complaintsModel.getValueAt(modelRow, 7);
+        Integer assignedWorkerId = (Integer) complaintsModel.getValueAt(modelRow, 8);
+
+        boolean isMyWork = (assignedWorkerId != null && assignedWorkerId == this.workerId);
+        boolean isUnassigned = (assignedWorkerId == null || assignedWorkerId == 0 || "PENDING".equalsIgnoreCase(status) || "Unassigned".equalsIgnoreCase(assignedWorkerName));
+        boolean isCompleted = "COMPLETED".equalsIgnoreCase(status) || "RESOLVED".equalsIgnoreCase(status);
+        boolean isInProgress = "IN PROGRESS".equalsIgnoreCase(status) || "IN_PROGRESS".equalsIgnoreCase(status);
+        boolean isAssigned = "ASSIGNED".equalsIgnoreCase(status);
+
+        String ownershipTag = isMyWork
+                ? " [✓ Assigned to YOU]"
+                : (isUnassigned ? " [⚠️ Unassigned]" : " [Assigned to: " + assignedWorkerName + "]");
+
+        detailHeader.setText("Complaint #" + complaintId + " — " + title + " (" + cat + ") | Resident: " + resName + " (" + apt + ") · Status: " + status + ownershipTag);
+        detailDescArea.setText(desc != null && !desc.isBlank() ? desc : "No description provided for this complaint.");
+
+        // 1. Claim button: enabled as long as it is not in progress, not completed, and not already assigned to this worker
+        claimBtn.setEnabled(!isMyWork && !isInProgress && !isCompleted);
+
+        // 2. Mark in progress: enabled ONLY if assigned to the logged-in worker, currently ASSIGNED, and not completed
+        progressBtn.setEnabled(isMyWork && isAssigned && !isCompleted);
+
+        // 3. Mark completed: enabled ONLY if assigned to the logged-in worker, and in progress (or assigned), and not completed
+        completeBtn.setEnabled(isMyWork && (isInProgress || isAssigned) && !isCompleted);
     }
 
     private JPanel createSection(String title, JComponent content) {
@@ -134,22 +240,67 @@ public class WorkerDashboard extends JFrame {
         t.getTableHeader().setBackground(new Color(239, 226, 209));
         t.getTableHeader().setForeground(COFFEE);
         t.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+
+        t.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
+                Object statusVal = table.getValueAt(row, 5);
+
+                if (!isSelected) {
+                    if (statusVal != null && (statusVal.toString().equalsIgnoreCase("COMPLETED") || statusVal.toString().equalsIgnoreCase("RESOLVED"))) {
+                        if (col == 5) {
+                            c.setForeground(new Color(24, 134, 75));
+                            c.setFont(c.getFont().deriveFont(Font.BOLD));
+                        } else {
+                            c.setForeground(COFFEE);
+                            c.setFont(c.getFont().deriveFont(Font.PLAIN));
+                        }
+                    } else if (statusVal != null && statusVal.toString().toUpperCase().contains("IN PROGRESS")) {
+                        if (col == 5) {
+                            c.setForeground(new Color(205, 115, 25));
+                            c.setFont(c.getFont().deriveFont(Font.BOLD));
+                        } else {
+                            c.setForeground(COFFEE);
+                            c.setFont(c.getFont().deriveFont(Font.PLAIN));
+                        }
+                    } else if (statusVal != null && statusVal.toString().toUpperCase().contains("ASSIGNED")) {
+                        if (col == 5) {
+                            c.setForeground(new Color(29, 111, 173));
+                            c.setFont(c.getFont().deriveFont(Font.BOLD));
+                        } else {
+                            c.setForeground(COFFEE);
+                            c.setFont(c.getFont().deriveFont(Font.PLAIN));
+                        }
+                    } else {
+                        if (col == 5) {
+                            c.setForeground(new Color(185, 28, 28));
+                            c.setFont(c.getFont().deriveFont(Font.BOLD));
+                        } else {
+                            c.setForeground(COFFEE);
+                            c.setFont(c.getFont().deriveFont(Font.PLAIN));
+                        }
+                    }
+                }
+                return c;
+            }
+        });
     }
 
-    // Fetches complaints and parking data from database
+    // Fetches complaints from database sorted by ID DESC
     private void loadData() {
         statusLabel.setText("Refreshing data...");
         try (Connection con = DBConnection.getConnection()) {
 
-            // 1. Fetch complaints
             complaintsModel.setRowCount(0);
             String complaintsSql =
                 "SELECT c.complaint_id, r.full_name, r.apartment_no, c.title, c.category, c.status, " +
-                "       COALESCE(w.full_name, 'Unassigned') AS worker " +
+                "       COALESCE(w.full_name, 'Unassigned') AS worker, " +
+                "       c.description, c.worker_id " +
                 "FROM complaints c " +
                 "JOIN residents r ON r.resident_id = c.resident_id " +
                 "LEFT JOIN workers w ON w.worker_id = c.worker_id " +
-                "ORDER BY CASE c.status WHEN 'PENDING' THEN 0 WHEN 'ASSIGNED' THEN 1 WHEN 'IN_PROGRESS' THEN 2 ELSE 3 END, c.created_at";
+                "ORDER BY c.complaint_id DESC";
 
             try (PreparedStatement ps = con.prepareStatement(complaintsSql);
                  ResultSet rs = ps.executeQuery()) {
@@ -158,6 +309,10 @@ public class WorkerDashboard extends JFrame {
                     if (displayStatus != null) {
                         displayStatus = displayStatus.replace("_", " ");
                     }
+                    int wId = rs.getInt("worker_id");
+                    Integer workerIdObj = rs.wasNull() ? null : wId;
+                    String desc = rs.getString("description");
+
                     complaintsModel.addRow(new Object[] {
                         rs.getInt("complaint_id"),
                         rs.getString("full_name"),
@@ -165,12 +320,15 @@ public class WorkerDashboard extends JFrame {
                         rs.getString("title"),
                         rs.getString("category"),
                         displayStatus,
-                        rs.getString("worker")
+                        rs.getString("worker"),
+                        desc != null ? desc : "",
+                        workerIdObj
                     });
                 }
             }
 
             statusLabel.setText("Updated just now · " + complaintsModel.getRowCount() + " maintenance complaints");
+            updateSelectionState();
         } catch (Exception ex) {
             statusLabel.setText("Refresh failed");
             LoginFrame.showDbError(ex);
@@ -181,25 +339,39 @@ public class WorkerDashboard extends JFrame {
     private void updateComplaintStatus(JTable table, String newStatus) {
         int selectedRow = table.getSelectedRow();
         if (selectedRow < 0) {
-            JOptionPane.showMessageDialog(this, "Please select a complaint first.");
+            JOptionPane.showMessageDialog(this, "Please select a complaint first.", "No Selection", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        int complaintId = (int) complaintsModel.getValueAt(selectedRow, 0);
-        String currentStatus = String.valueOf(complaintsModel.getValueAt(selectedRow, 5));
+        int modelRow = table.convertRowIndexToModel(selectedRow);
+        int complaintId = (int) complaintsModel.getValueAt(modelRow, 0);
+        String currentStatus = String.valueOf(complaintsModel.getValueAt(modelRow, 5)).trim();
+        Integer assignedWorkerId = (Integer) complaintsModel.getValueAt(modelRow, 8);
+        String assignedWorkerName = (String) complaintsModel.getValueAt(modelRow, 6);
 
-        if ("COMPLETED".equals(currentStatus)) {
-            JOptionPane.showMessageDialog(this, "This complaint is already completed.");
+        if ("COMPLETED".equalsIgnoreCase(currentStatus) || "RESOLVED".equalsIgnoreCase(currentStatus)) {
+            JOptionPane.showMessageDialog(this, "This complaint is already completed.", "Notice", JOptionPane.INFORMATION_MESSAGE);
             return;
+        }
+
+        // Ownership validation: worker cannot advance work that isn't theirs
+        if ("IN_PROGRESS".equals(newStatus) || "COMPLETED".equals(newStatus)) {
+            if (assignedWorkerId == null || assignedWorkerId != this.workerId) {
+                JOptionPane.showMessageDialog(this,
+                        "You cannot update this task.\nIt is assigned to: " + (assignedWorkerName != null ? assignedWorkerName : "another worker") +
+                        "\nOnly the assigned technician (" + this.workerName + ") can update or complete this work.",
+                        "Not Your Work", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
         }
 
         double billedAmount = 0.0;
         String billDesc = null;
 
         if ("COMPLETED".equals(newStatus)) {
-            String title = (String) complaintsModel.getValueAt(selectedRow, 3);
-            String resName = (String) complaintsModel.getValueAt(selectedRow, 1);
-            String apt = (String) complaintsModel.getValueAt(selectedRow, 2);
+            String title = (String) complaintsModel.getValueAt(modelRow, 3);
+            String resName = (String) complaintsModel.getValueAt(modelRow, 1);
+            String apt = (String) complaintsModel.getValueAt(modelRow, 2);
 
             JTextField amtField = new JTextField("0");
             JTextField descField = new JTextField("Maintenance Service: " + title);
@@ -233,14 +405,22 @@ public class WorkerDashboard extends JFrame {
 
         String sql;
         if ("ASSIGNED".equals(newStatus)) {
-            if (!"PENDING".equals(currentStatus) && !"ASSIGNED".equals(currentStatus)) {
-                JOptionPane.showMessageDialog(this, "Only pending complaints can be claimed.");
+            if ("IN_PROGRESS".equalsIgnoreCase(currentStatus) || "IN PROGRESS".equalsIgnoreCase(currentStatus)) {
+                JOptionPane.showMessageDialog(this, "This work is already in progress and cannot be claimed.", "Task In Progress", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            sql = "UPDATE complaints SET worker_id = ?, status = 'ASSIGNED' WHERE complaint_id = ?";
+            if ("COMPLETED".equalsIgnoreCase(currentStatus) || "RESOLVED".equalsIgnoreCase(currentStatus)) {
+                JOptionPane.showMessageDialog(this, "This task is already completed.", "Task Completed", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            if (assignedWorkerId != null && assignedWorkerId == this.workerId) {
+                JOptionPane.showMessageDialog(this, "This task is already assigned to you.", "Already Assigned", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            sql = "UPDATE complaints SET worker_id = ?, status = 'ASSIGNED' WHERE complaint_id = ? AND status NOT IN ('IN_PROGRESS', 'COMPLETED', 'RESOLVED')";
         } else if ("IN_PROGRESS".equals(newStatus)) {
-            if (!"ASSIGNED".equals(currentStatus)) {
-                JOptionPane.showMessageDialog(this, "Claim this complaint first before marking in progress.");
+            if (!"ASSIGNED".equalsIgnoreCase(currentStatus)) {
+                JOptionPane.showMessageDialog(this, "Task must be in 'ASSIGNED' state to mark in progress.", "Status Error", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             sql = "UPDATE complaints SET status = 'IN_PROGRESS' WHERE complaint_id = ? AND worker_id = ?";
@@ -292,10 +472,13 @@ public class WorkerDashboard extends JFrame {
                             " automatically generated and sent to resident.",
                             "Success & Billed", JOptionPane.INFORMATION_MESSAGE);
                 } else {
-                    JOptionPane.showMessageDialog(this, "Complaint updated to " + newStatus.replace("_", " ") + ".");
+                    String msg = "ASSIGNED".equals(newStatus)
+                            ? "Complaint #" + complaintId + " successfully claimed by you!"
+                            : "Complaint #" + complaintId + " updated to " + newStatus.replace("_", " ") + ".";
+                    JOptionPane.showMessageDialog(this, msg, "Status Updated", JOptionPane.INFORMATION_MESSAGE);
                 }
             } else {
-                JOptionPane.showMessageDialog(this, "Could not update complaint. Check if it is assigned to you.");
+                JOptionPane.showMessageDialog(this, "Could not update complaint. Check if it is assigned to you.", "Update Failed", JOptionPane.WARNING_MESSAGE);
             }
             loadData();
         } catch (Exception ex) {

@@ -1,7 +1,6 @@
 package view;
 
 import database.DBConnection;
-import util.CodeGenerator;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -46,7 +45,7 @@ public class AdminDashboard extends JFrame {
     // Complaints Components
     private JLabel totalCompStat, pendingCompStat, inProgCompStat, completedCompStat;
     private final DefaultTableModel complaintsModel = new DefaultTableModel(
-            new String[] { "ID", "Resident", "Apt", "Title", "Category", "Worker", "Due Date", "Status", "Deadline" }, 0) {
+            new String[] { "ID", "Resident", "Apt", "Title", "Category", "Worker", "Status", "Date Logged" }, 0) {
         public boolean isCellEditable(int r, int c) { return false; }
     };
     private final JTable complaintsTable = new JTable(complaintsModel);
@@ -57,7 +56,7 @@ public class AdminDashboard extends JFrame {
     // Payments / Billing Components
     private JLabel totalBilledStat, totalPaidStat, totalPendingStat, totalOverdueStat;
     private final DefaultTableModel paymentsModel = new DefaultTableModel(
-            new String[] { "ID", "Resident", "Apt", "Bill Title / Month", "Amount (₹)", "Due Date", "Paid Date", "Method", "Txn ID", "Status" }, 0) {
+            new String[] { "ID", "Resident", "Apt", "Bill Title / Month", "Amount (₹)", "Due Date", "Paid Date", "Method", "Status" }, 0) {
         public boolean isCellEditable(int r, int c) { return false; }
     };
     private final JTable paymentsTable = new JTable(paymentsModel);
@@ -361,33 +360,31 @@ public class AdminDashboard extends JFrame {
         complaintsTable.getTableHeader().setBackground(new Color(239, 226, 209));
         complaintsTable.getTableHeader().setForeground(COFFEE);
 
-        complaintsTable.getColumnModel().getColumn(0).setPreferredWidth(35);
-        complaintsTable.getColumnModel().getColumn(1).setPreferredWidth(105);
-        complaintsTable.getColumnModel().getColumn(2).setPreferredWidth(55);
-        complaintsTable.getColumnModel().getColumn(3).setPreferredWidth(145);
-        complaintsTable.getColumnModel().getColumn(4).setPreferredWidth(75);
-        complaintsTable.getColumnModel().getColumn(5).setPreferredWidth(95);
-        complaintsTable.getColumnModel().getColumn(6).setPreferredWidth(80);
-        complaintsTable.getColumnModel().getColumn(7).setPreferredWidth(85);
-        complaintsTable.getColumnModel().getColumn(8).setPreferredWidth(85);
+        complaintsTable.getColumnModel().getColumn(0).setPreferredWidth(40);
+        complaintsTable.getColumnModel().getColumn(1).setPreferredWidth(130);
+        complaintsTable.getColumnModel().getColumn(2).setPreferredWidth(60);
+        complaintsTable.getColumnModel().getColumn(3).setPreferredWidth(185);
+        complaintsTable.getColumnModel().getColumn(4).setPreferredWidth(95);
+        complaintsTable.getColumnModel().getColumn(5).setPreferredWidth(125);
+        complaintsTable.getColumnModel().getColumn(6).setPreferredWidth(115);
+        complaintsTable.getColumnModel().getColumn(7).setPreferredWidth(110);
 
         complaintsTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
-                Object deadlineVal = table.getValueAt(row, 8);
-                Object statusVal = table.getValueAt(row, 7);
+                Object statusVal = table.getValueAt(row, 6);
 
                 if (!isSelected) {
-                    if (deadlineVal != null && deadlineVal.toString().contains("OVERDUE")) {
-                        c.setForeground(new Color(195, 35, 35));
-                        if (col == 7 || col == 8) c.setFont(c.getFont().deriveFont(Font.BOLD));
-                    } else if (statusVal != null && (statusVal.toString().equalsIgnoreCase("RESOLVED") || statusVal.toString().equalsIgnoreCase("COMPLETED"))) {
+                    if (statusVal != null && (statusVal.toString().equalsIgnoreCase("RESOLVED") || statusVal.toString().equalsIgnoreCase("COMPLETED"))) {
                         c.setForeground(new Color(24, 134, 75));
-                        if (col == 7 || col == 8) c.setFont(c.getFont().deriveFont(Font.BOLD));
+                        if (col == 6) c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else if (statusVal != null && statusVal.toString().toUpperCase().contains("IN PROGRESS")) {
                         c.setForeground(new Color(205, 115, 25));
-                        if (col == 7 || col == 8) c.setFont(c.getFont().deriveFont(Font.BOLD));
+                        if (col == 6) c.setFont(c.getFont().deriveFont(Font.BOLD));
+                    } else if (statusVal != null && statusVal.toString().toUpperCase().contains("ASSIGNED")) {
+                        c.setForeground(new Color(29, 111, 173));
+                        if (col == 6) c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else {
                         c.setForeground(COFFEE);
                         c.setFont(c.getFont().deriveFont(Font.PLAIN));
@@ -497,30 +494,29 @@ public class AdminDashboard extends JFrame {
         paymentsTable.getTableHeader().setBackground(new Color(239, 226, 209));
         paymentsTable.getTableHeader().setForeground(COFFEE);
 
-        paymentsTable.getColumnModel().getColumn(0).setPreferredWidth(35);
-        paymentsTable.getColumnModel().getColumn(1).setPreferredWidth(110);
-        paymentsTable.getColumnModel().getColumn(2).setPreferredWidth(55);
-        paymentsTable.getColumnModel().getColumn(3).setPreferredWidth(155);
-        paymentsTable.getColumnModel().getColumn(4).setPreferredWidth(85);
-        paymentsTable.getColumnModel().getColumn(5).setPreferredWidth(80);
-        paymentsTable.getColumnModel().getColumn(6).setPreferredWidth(80);
-        paymentsTable.getColumnModel().getColumn(7).setPreferredWidth(75);
-        paymentsTable.getColumnModel().getColumn(8).setPreferredWidth(110);
-        paymentsTable.getColumnModel().getColumn(9).setPreferredWidth(75);
+        paymentsTable.getColumnModel().getColumn(0).setPreferredWidth(40);
+        paymentsTable.getColumnModel().getColumn(1).setPreferredWidth(130);
+        paymentsTable.getColumnModel().getColumn(2).setPreferredWidth(60);
+        paymentsTable.getColumnModel().getColumn(3).setPreferredWidth(180);
+        paymentsTable.getColumnModel().getColumn(4).setPreferredWidth(95);
+        paymentsTable.getColumnModel().getColumn(5).setPreferredWidth(90);
+        paymentsTable.getColumnModel().getColumn(6).setPreferredWidth(90);
+        paymentsTable.getColumnModel().getColumn(7).setPreferredWidth(85);
+        paymentsTable.getColumnModel().getColumn(8).setPreferredWidth(90);
 
         paymentsTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
-                Object statusVal = table.getValueAt(row, 9);
+                Object statusVal = table.getValueAt(row, 8);
 
                 if (!isSelected) {
                     if (statusVal != null && statusVal.toString().contains("OVERDUE")) {
                         c.setForeground(new Color(195, 35, 35));
-                        if (col == 9) c.setFont(c.getFont().deriveFont(Font.BOLD));
+                        if (col == 8) c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else if (statusVal != null && statusVal.toString().contains("PAID")) {
                         c.setForeground(new Color(24, 134, 75));
-                        if (col == 9) c.setFont(c.getFont().deriveFont(Font.BOLD));
+                        if (col == 8) c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else {
                         c.setForeground(COFFEE);
                         c.setFont(c.getFont().deriveFont(Font.PLAIN));
@@ -831,7 +827,8 @@ public class AdminDashboard extends JFrame {
         }
 
         String sql = "SELECT c.complaint_id, r.full_name, r.apartment_no, c.title, c.category, " +
-                     "COALESCE(w.full_name, 'Unassigned') AS worker_name, c.due_date, c.status " +
+                     "COALESCE(w.full_name, 'Unassigned') AS worker_name, c.status, " +
+                     "c.created_at::DATE AS log_date " +
                      "FROM complaints c " +
                      "JOIN residents r ON c.resident_id = r.resident_id " +
                      "LEFT JOIN workers w ON c.worker_id = w.worker_id " +
@@ -843,8 +840,6 @@ public class AdminDashboard extends JFrame {
              PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 
-            LocalDate today = LocalDate.now();
-
             while (rs.next()) {
                 total++;
                 int id = rs.getInt("complaint_id");
@@ -853,28 +848,22 @@ public class AdminDashboard extends JFrame {
                 String title = rs.getString("title");
                 String cat = rs.getString("category");
                 String worker = rs.getString("worker_name");
-                java.sql.Date due = rs.getDate("due_date");
+                java.sql.Date logDate = rs.getDate("log_date");
                 String rawStatus = rs.getString("status");
                 String displayStatus = rawStatus != null ? rawStatus.replace("_", " ") : "PENDING";
 
-                String deadline = "On Schedule";
                 if ("COMPLETED".equalsIgnoreCase(rawStatus) || "RESOLVED".equalsIgnoreCase(rawStatus)) {
                     completed++;
-                    deadline = "Completed";
                 } else if ("IN_PROGRESS".equalsIgnoreCase(rawStatus) || "IN PROGRESS".equalsIgnoreCase(rawStatus)) {
                     inProg++;
                 } else {
                     pending++;
                 }
 
-                if (due != null && !"Completed".equals(deadline) && today.isAfter(due.toLocalDate())) {
-                    deadline = "⚠️ OVERDUE";
-                }
-
                 complaintsModel.addRow(new Object[]{
                         id, resName, apt, title, cat, worker,
-                        due != null ? due.toString() : "Not Set",
-                        displayStatus, deadline
+                        displayStatus,
+                        logDate != null ? logDate.toString() : "-"
                 });
             }
 
@@ -892,7 +881,7 @@ public class AdminDashboard extends JFrame {
         paymentsModel.setRowCount(0);
 
         String sql = "SELECT p.payment_id, r.full_name, r.apartment_no, p.month_year, p.amount, p.due_date, " +
-                     "p.payment_date, p.payment_method, p.transaction_id, p.status " +
+                     "p.payment_date, p.payment_method, p.status " +
                      "FROM payments p " +
                      "JOIN residents r ON p.resident_id = r.resident_id " +
                      "ORDER BY p.payment_id DESC";
@@ -913,7 +902,6 @@ public class AdminDashboard extends JFrame {
                 java.sql.Date due = rs.getDate("due_date");
                 java.sql.Date paidDate = rs.getDate("payment_date");
                 String method = rs.getString("payment_method");
-                String txn = rs.getString("transaction_id");
                 String status = rs.getString("status");
 
                 totalBilled += amt;
@@ -932,7 +920,6 @@ public class AdminDashboard extends JFrame {
                         due != null ? due.toString() : "-",
                         paidDate != null ? paidDate.toString() : "-",
                         method != null ? method : "-",
-                        txn != null ? txn : "-",
                         status != null ? status : "PENDING"
                 });
             }
