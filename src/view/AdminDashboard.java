@@ -1187,12 +1187,7 @@ public class AdminDashboard extends JFrame {
     // AUTO-ASSIGN & BILLING LOGIC
     // ==========================================
 
-    /**
-     * Finds the best worker for a complaint (delegates to Model/DAO).
-     */
-    public static Integer findWorkerForComplaint(java.sql.Connection con, String category) throws java.sql.SQLException {
-        return new model.dao.WorkerDAO().findBestWorkerForCategory(category);
-    }
+
 
     private void assignSelectedComplaintManual() {
         int selectedRow = complaintsTable.getSelectedRow();

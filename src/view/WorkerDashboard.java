@@ -253,38 +253,17 @@ public class WorkerDashboard extends JFrame {
                 Object statusVal = table.getValueAt(row, 5);
 
                 if (!isSelected) {
-                    if (statusVal != null && (statusVal.toString().equalsIgnoreCase("COMPLETED") || statusVal.toString().equalsIgnoreCase("RESOLVED"))) {
-                        if (col == 5) {
-                            c.setForeground(new Color(24, 134, 75));
-                            c.setFont(c.getFont().deriveFont(Font.BOLD));
-                        } else {
-                            c.setForeground(COFFEE);
-                            c.setFont(c.getFont().deriveFont(Font.PLAIN));
-                        }
-                    } else if (statusVal != null && statusVal.toString().toUpperCase().contains("IN PROGRESS")) {
-                        if (col == 5) {
-                            c.setForeground(new Color(205, 115, 25));
-                            c.setFont(c.getFont().deriveFont(Font.BOLD));
-                        } else {
-                            c.setForeground(COFFEE);
-                            c.setFont(c.getFont().deriveFont(Font.PLAIN));
-                        }
-                    } else if (statusVal != null && statusVal.toString().toUpperCase().contains("ASSIGNED")) {
-                        if (col == 5) {
-                            c.setForeground(new Color(29, 111, 173));
-                            c.setFont(c.getFont().deriveFont(Font.BOLD));
-                        } else {
-                            c.setForeground(COFFEE);
-                            c.setFont(c.getFont().deriveFont(Font.PLAIN));
-                        }
+                    if (col == 5 && statusVal != null) {
+                        String s = statusVal.toString().toUpperCase();
+                        Color color = (s.contains("COMPLETED") || s.contains("RESOLVED")) ? new Color(24, 134, 75)
+                                    : s.contains("IN PROGRESS") ? new Color(205, 115, 25)
+                                    : s.contains("ASSIGNED") ? new Color(29, 111, 173)
+                                    : new Color(185, 28, 28);
+                        c.setForeground(color);
+                        c.setFont(c.getFont().deriveFont(Font.BOLD));
                     } else {
-                        if (col == 5) {
-                            c.setForeground(new Color(185, 28, 28));
-                            c.setFont(c.getFont().deriveFont(Font.BOLD));
-                        } else {
-                            c.setForeground(COFFEE);
-                            c.setFont(c.getFont().deriveFont(Font.PLAIN));
-                        }
+                        c.setForeground(COFFEE);
+                        c.setFont(c.getFont().deriveFont(Font.PLAIN));
                     }
                 }
                 return c;

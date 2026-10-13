@@ -111,34 +111,37 @@ public class ComplaintDAO {
         return null;
     }
 
-    public int insert(Complaint c) throws SQLException {
+    public int insert(int residentId, String title, String category, String description, Integer workerId) throws SQLException {
+        String status = (workerId != null && workerId > 0) ? "ASSIGNED" : "PENDING";
         String sql = "INSERT INTO complaints (resident_id, worker_id, title, description, category, status) " +
                      "VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setInt(1, c.getResidentId());
-            if (c.getWorkerId() != null && c.getWorkerId() > 0) {
-                ps.setInt(2, c.getWorkerId());
+            ps.setInt(1, residentId);
+            if (workerId != null && workerId > 0) {
+                ps.setInt(2, workerId);
             } else {
                 ps.setNull(2, Types.INTEGER);
             }
-            ps.setString(3, c.getTitle());
-            ps.setString(4, c.getDescription());
-            ps.setString(5, c.getCategory());
-            ps.setString(6, c.getStatus() != null ? c.getStatus() : "PENDING");
+            ps.setString(3, title);
+            ps.setString(4, description);
+            ps.setString(5, category);
+            ps.setString(6, status);
 
             int rows = ps.executeUpdate();
             if (rows > 0) {
                 try (ResultSet gk = ps.getGeneratedKeys()) {
-                    if (gk.next()) {
-                        int genId = gk.getInt(1);
-                        c.setComplaintId(genId);
-                        return genId;
-                    }
+                    if (gk.next()) return gk.getInt(1);
                 }
             }
         }
         return 0;
+    }
+
+    public int insert(Complaint c) throws SQLException {
+        int id = insert(c.getResidentId(), c.getTitle(), c.getCategory(), c.getDescription(), c.getWorkerId());
+        c.setComplaintId(id);
+        return id;
     }
 
     public boolean assignWorker(int complaintId, int workerId) throws SQLException {

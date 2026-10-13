@@ -1,4 +1,5 @@
 import view.WelcomeFrame;
+import javax.swing.SwingUtilities;
 
 public class Main {
     public static void main(String[] args) {
@@ -6,7 +7,7 @@ public class Main {
         System.setProperty("awt.useSystemAAFontSettings", "on");
         System.setProperty("swing.aatext", "true");
 
-        // Start the application by displaying the Welcome screen
-        new WelcomeFrame();
+        // Start the application safely on the Swing Event Dispatch Thread (EDT)
+        SwingUtilities.invokeLater(() -> new WelcomeFrame());
     }
 }

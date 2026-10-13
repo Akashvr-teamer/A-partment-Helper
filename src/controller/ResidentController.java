@@ -32,18 +32,7 @@ public class ResidentController {
                                     Timestamp validFrom, Timestamp validUntil) throws SQLException {
         String passCode = CodeGenerator.generateCode();
         String passHash = CodeGenerator.sha256(passCode);
-
-        Visitor v = new Visitor();
-        v.setResidentId(residentId);
-        v.setVisitorName(name);
-        v.setPhone(phone);
-        v.setHasVehicle(hasVehicle);
-        v.setVehicleNo(hasVehicle ? vehicleNo : null);
-        v.setAccessHash(passHash);
-        v.setValidFrom(validFrom);
-        v.setValidUntil(validUntil);
-
-        visitorDAO.insert(v);
+        visitorDAO.insert(residentId, name, phone, hasVehicle, vehicleNo, passHash, validFrom, validUntil);
         return passCode;
     }
 
@@ -52,21 +41,8 @@ public class ResidentController {
     }
 
     public boolean fileComplaint(int residentId, String title, String category, String description) throws SQLException {
-        Complaint c = new Complaint();
-        c.setResidentId(residentId);
-        c.setTitle(title);
-        c.setCategory(category);
-        c.setDescription(description);
-        c.setStatus("PENDING");
-
-        // Try smart auto-assigning matching worker right away if available
         Integer workerId = workerDAO.findBestWorkerForCategory(category);
-        if (workerId != null) {
-            c.setWorkerId(workerId);
-            c.setStatus("ASSIGNED");
-        }
-
-        return complaintDAO.insert(c) > 0;
+        return complaintDAO.insert(residentId, title, category, description, workerId) > 0;
     }
 
     public List<Payment> getPayments(int residentId) throws SQLException {

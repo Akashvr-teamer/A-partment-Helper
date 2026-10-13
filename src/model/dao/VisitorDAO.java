@@ -24,32 +24,36 @@ public class VisitorDAO {
         return list;
     }
 
-    public int insert(Visitor v) throws SQLException {
+    public int insert(int residentId, String name, String phone, boolean hasVehicle, String vehicleNo,
+                      String accessHash, Timestamp validFrom, Timestamp validUntil) throws SQLException {
         String sql = "INSERT INTO visitors(resident_id, visitor_name, phone, has_vehicle, vehicle_no, access_hash, valid_from, valid_until, status) " +
                      "VALUES(?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')";
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setInt(1, v.getResidentId());
-            ps.setString(2, v.getVisitorName());
-            ps.setString(3, v.getPhone());
-            ps.setBoolean(4, v.isHasVehicle());
-            ps.setString(5, v.isHasVehicle() ? v.getVehicleNo() : null);
-            ps.setString(6, v.getAccessHash());
-            ps.setTimestamp(7, v.getValidFrom());
-            ps.setTimestamp(8, v.getValidUntil());
+            ps.setInt(1, residentId);
+            ps.setString(2, name);
+            ps.setString(3, phone);
+            ps.setBoolean(4, hasVehicle);
+            ps.setString(5, hasVehicle ? vehicleNo : null);
+            ps.setString(6, accessHash);
+            ps.setTimestamp(7, validFrom);
+            ps.setTimestamp(8, validUntil);
 
             int rows = ps.executeUpdate();
             if (rows > 0) {
                 try (ResultSet gk = ps.getGeneratedKeys()) {
-                    if (gk.next()) {
-                        int genId = gk.getInt(1);
-                        v.setVisitorId(genId);
-                        return genId;
-                    }
+                    if (gk.next()) return gk.getInt(1);
                 }
             }
         }
         return 0;
+    }
+
+    public int insert(Visitor v) throws SQLException {
+        int id = insert(v.getResidentId(), v.getVisitorName(), v.getPhone(), v.isHasVehicle(),
+                v.getVehicleNo(), v.getAccessHash(), v.getValidFrom(), v.getValidUntil());
+        v.setVisitorId(id);
+        return id;
     }
 
     public Visitor getByAccessHash(String hash) throws SQLException {

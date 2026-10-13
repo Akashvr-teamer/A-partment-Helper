@@ -31,30 +31,32 @@ public class AuthController {
         }
 
         try {
+            boolean success = false;
+
             if (role == Role.RESIDENT) {
                 Resident r = residentDAO.authenticate(email, password);
                 if (r != null) {
                     new ResidentDashboard(r.getResidentId(), r.getFullName());
-                    if (parentFrame != null) parentFrame.dispose();
-                } else {
-                    JOptionPane.showMessageDialog(parentFrame, "Invalid Resident email or password.", "Login Failed", JOptionPane.ERROR_MESSAGE);
+                    success = true;
                 }
             } else if (role == Role.WORKER) {
                 Worker w = workerDAO.authenticate(email, password);
                 if (w != null) {
                     new WorkerDashboard(w.getWorkerId(), w.getFullName());
-                    if (parentFrame != null) parentFrame.dispose();
-                } else {
-                    JOptionPane.showMessageDialog(parentFrame, "Invalid Worker email or password.", "Login Failed", JOptionPane.ERROR_MESSAGE);
+                    success = true;
                 }
             } else if (role == Role.ADMIN) {
                 Admin a = adminDAO.authenticate(email, password);
                 if (a != null) {
                     new AdminDashboard(a.getAdminId(), a.getFullName());
-                    if (parentFrame != null) parentFrame.dispose();
-                } else {
-                    JOptionPane.showMessageDialog(parentFrame, "Invalid Admin credentials.", "Login Failed", JOptionPane.ERROR_MESSAGE);
+                    success = true;
                 }
+            }
+
+            if (success) {
+                if (parentFrame != null) parentFrame.dispose();
+            } else {
+                JOptionPane.showMessageDialog(parentFrame, "Invalid email or password.", "Login Failed", JOptionPane.ERROR_MESSAGE);
             }
         } catch (SQLException ex) {
             LoginFrame.showDbError(ex);
