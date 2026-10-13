@@ -1,15 +1,20 @@
 package view;
 
-import database.DBConnection;
+import controller.WorkerController;
+import model.Complaint;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.sql.*;
+import java.sql.Date;
+import java.time.LocalDate;
+import java.util.List;
 
 public class WorkerDashboard extends JFrame {
     private final int workerId;
     private final String workerName;
+    private final WorkerController workerController = new WorkerController();
 
     // Table model for maintenance complaints
     // Columns: ID, Resident, Apartment, Title, Category, Status, Assigned Worker, Description (hidden), Worker ID (hidden)
@@ -287,44 +292,26 @@ public class WorkerDashboard extends JFrame {
         });
     }
 
-    // Fetches complaints from database sorted by ID DESC
+    // Fetches complaints via WorkerController
     private void loadData() {
         statusLabel.setText("Refreshing data...");
-        try (Connection con = DBConnection.getConnection()) {
-
+        try {
             complaintsModel.setRowCount(0);
-            String complaintsSql =
-                "SELECT c.complaint_id, r.full_name, r.apartment_no, c.title, c.category, c.status, " +
-                "       COALESCE(w.full_name, 'Unassigned') AS worker, " +
-                "       c.description, c.worker_id " +
-                "FROM complaints c " +
-                "JOIN residents r ON r.resident_id = c.resident_id " +
-                "LEFT JOIN workers w ON w.worker_id = c.worker_id " +
-                "ORDER BY c.complaint_id DESC";
+            List<Complaint> complaints = workerController.getAllComplaints();
 
-            try (PreparedStatement ps = con.prepareStatement(complaintsSql);
-                 ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    String displayStatus = rs.getString("status");
-                    if (displayStatus != null) {
-                        displayStatus = displayStatus.replace("_", " ");
-                    }
-                    int wId = rs.getInt("worker_id");
-                    Integer workerIdObj = rs.wasNull() ? null : wId;
-                    String desc = rs.getString("description");
-
-                    complaintsModel.addRow(new Object[] {
-                        rs.getInt("complaint_id"),
-                        rs.getString("full_name"),
-                        rs.getString("apartment_no"),
-                        rs.getString("title"),
-                        rs.getString("category"),
-                        displayStatus,
-                        rs.getString("worker"),
-                        desc != null ? desc : "",
-                        workerIdObj
-                    });
-                }
+            for (Complaint c : complaints) {
+                String displayStatus = c.getStatus() != null ? c.getStatus().replace("_", " ") : "PENDING";
+                complaintsModel.addRow(new Object[] {
+                    c.getComplaintId(),
+                    c.getResidentName(),
+                    c.getApartmentNo(),
+                    c.getTitle(),
+                    c.getCategory(),
+                    displayStatus,
+                    c.getWorkerName() != null ? c.getWorkerName() : "Unassigned",
+                    c.getDescription() != null ? c.getDescription() : "",
+                    c.getWorkerId()
+                });
             }
 
             statusLabel.setText("Updated just now · " + complaintsModel.getRowCount() + " maintenance complaints");
@@ -335,7 +322,7 @@ public class WorkerDashboard extends JFrame {
         }
     }
 
-    // Updates complaint status (claim, in progress, completed)
+    // Updates complaint status (claim, in progress, completed) via WorkerController
     private void updateComplaintStatus(JTable table, String newStatus) {
         int selectedRow = table.getSelectedRow();
         if (selectedRow < 0) {
@@ -365,119 +352,73 @@ public class WorkerDashboard extends JFrame {
             }
         }
 
-        double billedAmount = 0.0;
-        String billDesc = null;
-
-        if ("COMPLETED".equals(newStatus)) {
-            String title = (String) complaintsModel.getValueAt(modelRow, 3);
-            String resName = (String) complaintsModel.getValueAt(modelRow, 1);
-            String apt = (String) complaintsModel.getValueAt(modelRow, 2);
-
-            JTextField amtField = new JTextField("0");
-            JTextField descField = new JTextField("Maintenance Service: " + title);
-
-            JPanel billForm = new JPanel(new GridLayout(0, 1, 6, 6));
-            billForm.add(new JLabel("Marking job completed for " + resName + " (" + apt + ")"));
-            billForm.add(new JLabel("Bill Amount to charge resident (₹) [0 if included/free]:"));
-            billForm.add(amtField);
-            billForm.add(new JLabel("Bill Description / Notes:"));
-            billForm.add(descField);
-
-            int opt = JOptionPane.showConfirmDialog(this, billForm, "Complete Work & Bill Resident", JOptionPane.OK_CANCEL_OPTION);
-            if (opt != JOptionPane.OK_OPTION) {
-                return; // Worker cancelled
-            }
-
-            try {
-                billedAmount = Double.parseDouble(amtField.getText().trim());
-                if (billedAmount < 0) billedAmount = 0;
-            } catch (Exception ignored) {
-                billedAmount = 0;
-            }
-            billDesc = descField.getText().trim();
-            if (billDesc.isEmpty()) {
-                billDesc = "Maintenance Service: " + title;
-            }
-            if (billDesc.length() > 255) {
-                billDesc = billDesc.substring(0, 255);
-            }
-        }
-
-        String sql;
-        if ("ASSIGNED".equals(newStatus)) {
-            if ("IN_PROGRESS".equalsIgnoreCase(currentStatus) || "IN PROGRESS".equalsIgnoreCase(currentStatus)) {
-                JOptionPane.showMessageDialog(this, "This work is already in progress and cannot be claimed.", "Task In Progress", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            if ("COMPLETED".equalsIgnoreCase(currentStatus) || "RESOLVED".equalsIgnoreCase(currentStatus)) {
-                JOptionPane.showMessageDialog(this, "This task is already completed.", "Task Completed", JOptionPane.INFORMATION_MESSAGE);
-                return;
-            }
-            if (assignedWorkerId != null && assignedWorkerId == this.workerId) {
-                JOptionPane.showMessageDialog(this, "This task is already assigned to you.", "Already Assigned", JOptionPane.INFORMATION_MESSAGE);
-                return;
-            }
-            sql = "UPDATE complaints SET worker_id = ?, status = 'ASSIGNED' WHERE complaint_id = ? AND status NOT IN ('IN_PROGRESS', 'COMPLETED', 'RESOLVED')";
-        } else if ("IN_PROGRESS".equals(newStatus)) {
-            if (!"ASSIGNED".equalsIgnoreCase(currentStatus)) {
-                JOptionPane.showMessageDialog(this, "Task must be in 'ASSIGNED' state to mark in progress.", "Status Error", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            sql = "UPDATE complaints SET status = 'IN_PROGRESS' WHERE complaint_id = ? AND worker_id = ?";
-        } else {
-            // COMPLETED
-            sql = "UPDATE complaints SET status = 'COMPLETED', completed_at = CURRENT_TIMESTAMP WHERE complaint_id = ? AND worker_id = ?";
-        }
-
-        try (Connection con = DBConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-
+        try {
+            boolean success = false;
             if ("ASSIGNED".equals(newStatus)) {
-                ps.setInt(1, workerId);
-                ps.setInt(2, complaintId);
-            } else {
-                ps.setInt(1, complaintId);
-                ps.setInt(2, workerId);
+                if ("IN_PROGRESS".equalsIgnoreCase(currentStatus) || "IN PROGRESS".equalsIgnoreCase(currentStatus)) {
+                    JOptionPane.showMessageDialog(this, "This work is already in progress and cannot be claimed.", "Task In Progress", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                if (assignedWorkerId != null && assignedWorkerId == this.workerId) {
+                    JOptionPane.showMessageDialog(this, "This task is already assigned to you.", "Already Assigned", JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
+                success = workerController.claimComplaint(complaintId, workerId);
+                if (success) {
+                    JOptionPane.showMessageDialog(this, "Complaint #" + complaintId + " successfully claimed by you!", "Status Updated", JOptionPane.INFORMATION_MESSAGE);
+                }
+            } else if ("IN_PROGRESS".equals(newStatus)) {
+                if (!"ASSIGNED".equalsIgnoreCase(currentStatus)) {
+                    JOptionPane.showMessageDialog(this, "Task must be in 'ASSIGNED' state to mark in progress.", "Status Error", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                success = workerController.markInProgress(complaintId);
+                if (success) {
+                    JOptionPane.showMessageDialog(this, "Complaint #" + complaintId + " updated to In Progress.", "Status Updated", JOptionPane.INFORMATION_MESSAGE);
+                }
+            } else if ("COMPLETED".equals(newStatus)) {
+                String title = (String) complaintsModel.getValueAt(modelRow, 3);
+                String resName = (String) complaintsModel.getValueAt(modelRow, 1);
+                String apt = (String) complaintsModel.getValueAt(modelRow, 2);
+
+                JTextField amtField = new JTextField("0");
+                JTextField noteField = new JTextField("Resolved: " + title);
+
+                JPanel billForm = new JPanel(new GridLayout(0, 1, 6, 6));
+                billForm.add(new JLabel("Marking job completed for " + resName + " (" + apt + ")"));
+                billForm.add(new JLabel("Bill Amount to charge resident (₹) [0 if included/free]:"));
+                billForm.add(amtField);
+                billForm.add(new JLabel("Work Completion Note / Bill Description:"));
+                billForm.add(noteField);
+
+                int opt = JOptionPane.showConfirmDialog(this, billForm, "Complete Work & Bill Resident", JOptionPane.OK_CANCEL_OPTION);
+                if (opt != JOptionPane.OK_OPTION) {
+                    return; // Worker cancelled
+                }
+
+                double billedAmount = 0.0;
+                try {
+                    billedAmount = Double.parseDouble(amtField.getText().trim());
+                    if (billedAmount < 0) billedAmount = 0;
+                } catch (Exception ignored) {
+                    billedAmount = 0;
+                }
+                String note = noteField.getText().trim();
+
+                success = workerController.completeComplaint(complaintId, workerId, note, billedAmount);
+                if (success) {
+                    if (billedAmount > 0) {
+                        JOptionPane.showMessageDialog(this,
+                                "Job COMPLETED!\nBill of ₹" + String.format("%.2f", billedAmount) +
+                                " automatically generated and sent to resident.",
+                                "Success & Billed", JOptionPane.INFORMATION_MESSAGE);
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Complaint #" + complaintId + " marked as COMPLETED.", "Status Updated", JOptionPane.INFORMATION_MESSAGE);
+                    }
+                }
             }
 
-            int rowsUpdated = ps.executeUpdate();
-            if (rowsUpdated > 0) {
-                if ("COMPLETED".equals(newStatus) && billedAmount > 0) {
-                    // Fetch resident_id for this complaint
-                    int residentId = -1;
-                    String getResSql = "SELECT resident_id FROM complaints WHERE complaint_id = ?";
-                    try (PreparedStatement psRes = con.prepareStatement(getResSql)) {
-                        psRes.setInt(1, complaintId);
-                        try (ResultSet rsRes = psRes.executeQuery()) {
-                            if (rsRes.next()) {
-                                residentId = rsRes.getInt("resident_id");
-                            }
-                        }
-                    }
-
-                    if (residentId != -1) {
-                        String billSql = "INSERT INTO payments (resident_id, month_year, amount, due_date, status, payment_type, complaint_id) " +
-                                         "VALUES (?, ?, ?, CURRENT_DATE + INTERVAL '7 days', 'PENDING', 'WORKER_SERVICE', ?)";
-                        try (PreparedStatement psBill = con.prepareStatement(billSql)) {
-                            psBill.setInt(1, residentId);
-                            psBill.setString(2, billDesc);
-                            psBill.setDouble(3, billedAmount);
-                            psBill.setInt(4, complaintId);
-                            psBill.executeUpdate();
-                        }
-                    }
-
-                    JOptionPane.showMessageDialog(this,
-                            "Job COMPLETED!\nBill of ₹" + String.format("%.2f", billedAmount) +
-                            " automatically generated and sent to resident.",
-                            "Success & Billed", JOptionPane.INFORMATION_MESSAGE);
-                } else {
-                    String msg = "ASSIGNED".equals(newStatus)
-                            ? "Complaint #" + complaintId + " successfully claimed by you!"
-                            : "Complaint #" + complaintId + " updated to " + newStatus.replace("_", " ") + ".";
-                    JOptionPane.showMessageDialog(this, msg, "Status Updated", JOptionPane.INFORMATION_MESSAGE);
-                }
-            } else {
+            if (!success) {
                 JOptionPane.showMessageDialog(this, "Could not update complaint. Check if it is assigned to you.", "Update Failed", JOptionPane.WARNING_MESSAGE);
             }
             loadData();

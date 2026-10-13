@@ -1,6 +1,7 @@
 package view;
 
-import database.DBConnection;
+import controller.AdminController;
+import model.*;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -9,7 +10,6 @@ import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -21,6 +21,7 @@ import java.util.regex.Pattern;
 public class AdminDashboard extends JFrame {
     private final int adminId;
     private final String adminName;
+    private final AdminController adminController = new AdminController();
 
     private final CardLayout cardLayout = new CardLayout();
     private final JPanel mainContainer = new JPanel(cardLayout);
@@ -1187,52 +1188,10 @@ public class AdminDashboard extends JFrame {
     // ==========================================
 
     /**
-     * Finds the best worker for a complaint based on the user's specific rule:
-     * 1. Look for workers with 0 active tasks (unassigned).
-     * 2. ONLY look for assigned workers if NO workers are unassigned.
+     * Finds the best worker for a complaint (delegates to Model/DAO).
      */
-    public static Integer findWorkerForComplaint(Connection con, String category) throws SQLException {
-        // Step 1: Look for an unassigned worker (0 active complaints in PENDING, ASSIGNED, IN_PROGRESS)
-        String unassignedSql =
-            "SELECT w.worker_id " +
-            "FROM workers w " +
-            "WHERE NOT EXISTS (" +
-            "    SELECT 1 FROM complaints c " +
-            "    WHERE c.worker_id = w.worker_id " +
-            "    AND c.status IN ('PENDING', 'ASSIGNED', 'IN_PROGRESS', 'IN PROGRESS')" +
-            ") " +
-            "ORDER BY CASE WHEN lower(w.worker_type) = lower(?) THEN 0 ELSE 1 END, w.worker_id ASC " +
-            "LIMIT 1";
-
-        try (PreparedStatement ps = con.prepareStatement(unassignedSql)) {
-            ps.setString(1, category != null ? category : "");
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("worker_id"); // Found unassigned worker!
-                }
-            }
-        }
-
-        // Step 2: ONLY IF NO workers are unassigned, look among already-assigned workers (least busy)
-        String busySql =
-            "SELECT w.worker_id, COUNT(c.complaint_id) AS active_cnt " +
-            "FROM workers w " +
-            "LEFT JOIN complaints c ON w.worker_id = c.worker_id " +
-            "    AND c.status IN ('PENDING', 'ASSIGNED', 'IN_PROGRESS', 'IN PROGRESS') " +
-            "GROUP BY w.worker_id, w.worker_type " +
-            "ORDER BY active_cnt ASC, CASE WHEN lower(w.worker_type) = lower(?) THEN 0 ELSE 1 END, w.worker_id ASC " +
-            "LIMIT 1";
-
-        try (PreparedStatement ps = con.prepareStatement(busySql)) {
-            ps.setString(1, category != null ? category : "");
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("worker_id");
-                }
-            }
-        }
-
-        return null;
+    public static Integer findWorkerForComplaint(java.sql.Connection con, String category) throws java.sql.SQLException {
+        return new model.dao.WorkerDAO().findBestWorkerForCategory(category);
     }
 
     private void assignSelectedComplaintManual() {
@@ -1250,14 +1209,9 @@ public class AdminDashboard extends JFrame {
 
         int complaintId = (int) complaintsModel.getValueAt(selectedRow, 0);
 
-        String sql = "UPDATE complaints SET worker_id = ?, status = 'ASSIGNED' WHERE complaint_id = ?";
-        try (Connection con = DBConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-
-            ps.setInt(1, item.id);
-            ps.setInt(2, complaintId);
-            int rows = ps.executeUpdate();
-            if (rows > 0) {
+        try {
+            boolean ok = adminController.assignComplaint(complaintId, item.id);
+            if (ok) {
                 JOptionPane.showMessageDialog(this, "Complaint #" + complaintId + " assigned to " + item.name + "!");
                 loadComplaintsData();
             }
@@ -1282,16 +1236,9 @@ public class AdminDashboard extends JFrame {
 
         complaintDetailsTitle.setText("Complaint #" + id + " — " + title + " | Resident: " + res + " (" + apt + ") | Worker: " + worker);
 
-        String sql = "SELECT description FROM complaints WHERE complaint_id = ?";
-        try (Connection con = DBConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    String desc = rs.getString("description");
-                    complaintDescArea.setText(desc != null && !desc.isBlank() ? desc : "No description provided.");
-                }
-            }
+        try {
+            String desc = adminController.getComplaintDescription(id);
+            complaintDescArea.setText(desc != null && !desc.isBlank() ? desc : "No description provided.");
         } catch (Exception ex) {
             complaintDescArea.setText("Error loading description: " + ex.getMessage());
         }
@@ -1299,11 +1246,10 @@ public class AdminDashboard extends JFrame {
 
     private void showGenerateBillDialog() {
         List<ResidentItem> residents = new ArrayList<>();
-        try (Connection con = DBConnection.getConnection();
-             Statement st = con.createStatement();
-             ResultSet rs = st.executeQuery("SELECT resident_id, full_name, apartment_no FROM residents ORDER BY apartment_no")) {
-            while (rs.next()) {
-                residents.add(new ResidentItem(rs.getInt("resident_id"), rs.getString("full_name"), rs.getString("apartment_no")));
+        try {
+            List<Resident> list = adminController.getAllResidents();
+            for (Resident r : list) {
+                residents.add(new ResidentItem(r.getResidentId(), r.getFullName(), r.getApartmentNo()));
             }
         } catch (Exception ex) {
             LoginFrame.showDbError(ex);
@@ -1363,20 +1309,11 @@ public class AdminDashboard extends JFrame {
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         String dueDateStr = sdf.format(dueDate);
+        java.sql.Date sqlDueDate = new java.sql.Date(dueDate.getTime());
 
-        String insertSql = "INSERT INTO payments (resident_id, month_year, amount, due_date, status, payment_type) " +
-                           "VALUES (?, ?, ?, ?::DATE, 'PENDING', 'CUSTOM')";
-
-        try (Connection con = DBConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(insertSql)) {
-
-            ps.setInt(1, selectedRes.id);
-            ps.setString(2, title);
-            ps.setDouble(3, amount);
-            ps.setString(4, dueDateStr);
-
-            int rows = ps.executeUpdate();
-            if (rows > 0) {
+        try {
+            boolean ok = adminController.generateCustomBill(selectedRes.id, title, amount, sqlDueDate);
+            if (ok) {
                 JOptionPane.showMessageDialog(this,
                         "Bill successfully generated and assigned to " + selectedRes.name + " (" + selectedRes.apt + ")!\n" +
                         "Amount: ₹" + String.format("%.2f", amount) + "\nDue Date: " + dueDateStr,
@@ -1392,67 +1329,39 @@ public class AdminDashboard extends JFrame {
     // DATA LOADERS
     // ==========================================
     private void loadOverviewData() {
-        try (Connection con = DBConnection.getConnection()) {
-            if (con == null) return;
-
-            // Residents count
-            try (Statement st = con.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM residents")) {
-                if (rs.next()) totalResidentsLbl.setText(String.valueOf(rs.getInt(1)));
-            }
-
-            // Workers count
-            try (Statement st = con.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM workers")) {
-                if (rs.next()) totalWorkersLbl.setText(String.valueOf(rs.getInt(1)));
-            }
-
-            // Open complaints count
-            try (Statement st = con.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM complaints WHERE status != 'COMPLETED'")) {
-                if (rs.next()) activeComplaintsLbl.setText(String.valueOf(rs.getInt(1)));
-            }
-
-            // Unpaid dues sum
-            try (Statement st = con.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status != 'PAID'")) {
-                if (rs.next()) totalDuesLbl.setText("₹" + String.format("%.0f", rs.getDouble(1)));
-            }
+        try {
+            SocietyMetrics metrics = adminController.getSocietyMetrics();
+            totalResidentsLbl.setText(String.valueOf(metrics.getTotalResidents()));
+            totalWorkersLbl.setText(String.valueOf(metrics.getTotalWorkers()));
+            activeComplaintsLbl.setText(String.valueOf(metrics.getActiveComplaints()));
+            totalDuesLbl.setText("₹" + String.format("%.0f", metrics.getTotalUnpaidDues()));
 
             // Overview complaints preview
             overviewComplaintsModel.setRowCount(0);
-            try (Statement st = con.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT c.complaint_id, r.full_name, c.title, c.category, c.status " +
-                                                "FROM complaints c JOIN residents r ON c.resident_id = r.resident_id " +
-                                                "ORDER BY c.complaint_id DESC LIMIT 15")) {
-                while (rs.next()) {
-                    String stText = rs.getString("status");
-                    if (stText != null) stText = stText.replace("_", " ");
-                    overviewComplaintsModel.addRow(new Object[]{
-                            rs.getInt("complaint_id"),
-                            rs.getString("full_name"),
-                            rs.getString("title"),
-                            rs.getString("category"),
-                            stText
-                    });
-                }
+            List<Complaint> recentComplaints = adminController.getRecentComplaints(15);
+            for (Complaint c : recentComplaints) {
+                String stText = c.getStatus();
+                if (stText != null) stText = stText.replace("_", " ");
+                overviewComplaintsModel.addRow(new Object[]{
+                        c.getComplaintId(),
+                        c.getResidentName() != null ? c.getResidentName() : "Unknown",
+                        c.getTitle(),
+                        c.getCategory(),
+                        stText
+                });
             }
 
             // Overview payments preview
             overviewPaymentsModel.setRowCount(0);
-            try (Statement st = con.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT p.payment_id, r.full_name, p.month_year, p.amount, p.status " +
-                                                "FROM payments p JOIN residents r ON p.resident_id = r.resident_id " +
-                                                "ORDER BY p.payment_id DESC LIMIT 15")) {
-                while (rs.next()) {
-                    overviewPaymentsModel.addRow(new Object[]{
-                            rs.getInt("payment_id"),
-                            rs.getString("full_name"),
-                            rs.getString("month_year"),
-                            String.format("%.2f", rs.getDouble("amount")),
-                            rs.getString("status")
-                    });
-                }
+            List<Payment> recentPayments = adminController.getRecentPayments(15);
+            for (Payment p : recentPayments) {
+                overviewPaymentsModel.addRow(new Object[]{
+                        p.getPaymentId(),
+                        p.getResidentName() != null ? p.getResidentName() : "Unknown",
+                        p.getMonthYear(),
+                        String.format("%.2f", p.getAmount()),
+                        p.getStatus()
+                });
             }
         } catch (Exception ex) {
             LoginFrame.showDbError(ex);
@@ -1465,39 +1374,21 @@ public class AdminDashboard extends JFrame {
         // Load workers into dropdown
         if (workerDropdown != null) {
             workerDropdown.removeAllItems();
-            try (Connection con = DBConnection.getConnection();
-                 Statement st = con.createStatement();
-                 ResultSet rs = st.executeQuery("SELECT worker_id, full_name, worker_type FROM workers ORDER BY full_name")) {
-                while (rs.next()) {
-                    workerDropdown.addItem(new WorkerItem(rs.getInt("worker_id"), rs.getString("full_name"), rs.getString("worker_type")));
+            try {
+                List<Worker> workers = adminController.getAllWorkers();
+                for (Worker w : workers) {
+                    workerDropdown.addItem(new WorkerItem(w.getWorkerId(), w.getFullName(), w.getWorkerType()));
                 }
             } catch (Exception ignored) {}
         }
 
-        String sql = "SELECT c.complaint_id, r.full_name, r.apartment_no, c.title, c.category, " +
-                     "COALESCE(w.full_name, 'Unassigned') AS worker_name, c.status, " +
-                     "c.created_at::DATE AS log_date " +
-                     "FROM complaints c " +
-                     "JOIN residents r ON c.resident_id = r.resident_id " +
-                     "LEFT JOIN workers w ON c.worker_id = w.worker_id " +
-                     "ORDER BY c.complaint_id DESC";
-
         int total = 0, pending = 0, inProg = 0, completed = 0;
 
-        try (Connection con = DBConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-
-            while (rs.next()) {
+        try {
+            List<Complaint> list = adminController.getAllComplaints();
+            for (Complaint c : list) {
                 total++;
-                int id = rs.getInt("complaint_id");
-                String resName = rs.getString("full_name");
-                String apt = rs.getString("apartment_no");
-                String title = rs.getString("title");
-                String cat = rs.getString("category");
-                String worker = rs.getString("worker_name");
-                java.sql.Date logDate = rs.getDate("log_date");
-                String rawStatus = rs.getString("status");
+                String rawStatus = c.getStatus();
                 String displayStatus = rawStatus != null ? rawStatus.replace("_", " ") : "PENDING";
 
                 if ("COMPLETED".equalsIgnoreCase(rawStatus) || "RESOLVED".equalsIgnoreCase(rawStatus)) {
@@ -1509,9 +1400,14 @@ public class AdminDashboard extends JFrame {
                 }
 
                 complaintsModel.addRow(new Object[]{
-                        id, resName, apt, title, cat, worker,
+                        c.getComplaintId(),
+                        c.getResidentName() != null ? c.getResidentName() : "-",
+                        c.getApartmentNo() != null ? c.getApartmentNo() : "-",
+                        c.getTitle(),
+                        c.getCategory(),
+                        c.getWorkerName() != null ? c.getWorkerName() : "Unassigned",
                         displayStatus,
-                        logDate != null ? logDate.toString() : "-"
+                        c.getCreatedAt() != null ? c.getCreatedAt().toString().substring(0, Math.min(10, c.getCreatedAt().toString().length())) : "-"
                 });
             }
 
@@ -1527,47 +1423,35 @@ public class AdminDashboard extends JFrame {
 
     private void loadBillingData() {
         paymentsModel.setRowCount(0);
-
-        String sql = "SELECT p.payment_id, r.full_name, r.apartment_no, p.month_year, p.amount, p.due_date, " +
-                     "p.payment_date, p.payment_method, p.status " +
-                     "FROM payments p " +
-                     "JOIN residents r ON p.resident_id = r.resident_id " +
-                     "ORDER BY p.payment_id DESC";
-
         double totalBilled = 0, totalPaid = 0, totalPending = 0, totalOverdue = 0;
         LocalDate today = LocalDate.now();
 
-        try (Connection con = DBConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-
-            while (rs.next()) {
-                int id = rs.getInt("payment_id");
-                String resName = rs.getString("full_name");
-                String apt = rs.getString("apartment_no");
-                String title = rs.getString("month_year");
-                double amt = rs.getDouble("amount");
-                java.sql.Date due = rs.getDate("due_date");
-                java.sql.Date paidDate = rs.getDate("payment_date");
-                String method = rs.getString("payment_method");
-                String status = rs.getString("status");
-
+        try {
+            List<Payment> list = adminController.getAllPayments();
+            for (Payment p : list) {
+                double amt = p.getAmount();
                 totalBilled += amt;
+                String status = p.getStatus();
+
                 if ("PAID".equalsIgnoreCase(status)) {
                     totalPaid += amt;
                 } else {
                     totalPending += amt;
-                    if (due != null && today.isAfter(due.toLocalDate())) {
+                    if (p.getDueDate() != null && today.isAfter(p.getDueDate().toLocalDate())) {
                         totalOverdue += amt;
                         status = "⚠️ OVERDUE";
                     }
                 }
 
                 paymentsModel.addRow(new Object[]{
-                        id, resName, apt, title, String.format("%.2f", amt),
-                        due != null ? due.toString() : "-",
-                        paidDate != null ? paidDate.toString() : "-",
-                        method != null ? method : "-",
+                        p.getPaymentId(),
+                        p.getResidentName() != null ? p.getResidentName() : "-",
+                        p.getApartmentNo() != null ? p.getApartmentNo() : "-",
+                        p.getMonthYear(),
+                        String.format("%.2f", amt),
+                        p.getDueDate() != null ? p.getDueDate().toString() : "-",
+                        p.getPaymentDate() != null ? p.getPaymentDate().toString() : "-",
+                        p.getPaymentMethod() != null ? p.getPaymentMethod() : "-",
                         status != null ? status : "PENDING"
                 });
             }
@@ -1604,67 +1488,32 @@ public class AdminDashboard extends JFrame {
             return;
         }
 
-        try (Connection con = DBConnection.getConnection()) {
-            if (con == null) return;
+        Resident r = new Resident();
+        r.setFullName(name);
+        r.setEmail(email);
+        r.setPhone(phone);
+        r.setApartmentNo(apt);
+        r.setPassword(pass);
+        r.setVehicleNo(vehicle.isEmpty() ? null : vehicle);
+        r.setParkingSlot(parking.isEmpty() ? null : parking);
 
-            // Check email uniqueness across all tables
-            String checkSql = "SELECT 'resident' FROM residents WHERE lower(email) = ? " +
-                              "UNION SELECT 'worker' FROM workers WHERE lower(email) = ? " +
-                              "UNION SELECT 'admin' FROM admins WHERE lower(email) = ?";
-            try (PreparedStatement ps = con.prepareStatement(checkSql)) {
-                ps.setString(1, email);
-                ps.setString(2, email);
-                ps.setString(3, email);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        JOptionPane.showMessageDialog(this, "The email '" + email + "' is already registered in the system.\nPlease use a unique email.", "Email Already Exists", JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
-                }
+        try {
+            int newResId = adminController.registerResident(r);
+            if (newResId > 0) {
+                JOptionPane.showMessageDialog(this,
+                        "Resident registered successfully!\n\n" +
+                        "Name: " + name + "\n" +
+                        "Apartment: " + apt + "\n" +
+                        "Login Email: " + email + "\n" +
+                        "Resident ID: #" + newResId,
+                        "Registration Successful", JOptionPane.INFORMATION_MESSAGE);
+
+                clearResidentForm();
+                loadOverviewData();
+                loadDirectoryData();
             }
-
-            String insSql = "INSERT INTO residents (full_name, email, phone, apartment_no, password, vehicle_no, parking_slot) " +
-                            "VALUES (?, ?, ?, ?, ?, ?, ?)";
-            try (PreparedStatement ps = con.prepareStatement(insSql, Statement.RETURN_GENERATED_KEYS)) {
-                ps.setString(1, name);
-                ps.setString(2, email);
-                ps.setString(3, phone);
-                ps.setString(4, apt);
-                ps.setString(5, pass);
-                ps.setString(6, vehicle.isEmpty() ? null : vehicle);
-                ps.setString(7, parking.isEmpty() ? null : parking);
-
-                int rows = ps.executeUpdate();
-                if (rows > 0) {
-                    int newResId = 0;
-                    try (ResultSet gk = ps.getGeneratedKeys()) {
-                        if (gk.next()) newResId = gk.getInt(1);
-                    }
-
-                    if (!parking.isEmpty() && newResId > 0) {
-                        try (PreparedStatement pps = con.prepareStatement(
-                                "INSERT INTO parking (slot_number, parking_type, status, resident_id) " +
-                                "VALUES (?, 'RESIDENT', 'OCCUPIED', ?) " +
-                                "ON CONFLICT (slot_number) DO UPDATE SET resident_id = EXCLUDED.resident_id, status = 'OCCUPIED'")) {
-                            pps.setString(1, parking);
-                            pps.setInt(2, newResId);
-                            pps.executeUpdate();
-                        } catch (Exception ignored) {}
-                    }
-
-                    JOptionPane.showMessageDialog(this,
-                            "Resident registered successfully!\n\n" +
-                            "Name: " + name + "\n" +
-                            "Apartment: " + apt + "\n" +
-                            "Login Email: " + email + "\n" +
-                            (newResId > 0 ? "Resident ID: #" + newResId : ""),
-                            "Registration Successful", JOptionPane.INFORMATION_MESSAGE);
-
-                    clearResidentForm();
-                    loadOverviewData();
-                    loadDirectoryData();
-                }
-            }
+        } catch (IllegalArgumentException iae) {
+            JOptionPane.showMessageDialog(this, iae.getMessage(), "Registration Error", JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex) {
             LoginFrame.showDbError(ex);
         }
@@ -1697,55 +1546,32 @@ public class AdminDashboard extends JFrame {
             return;
         }
 
-        try (Connection con = DBConnection.getConnection()) {
-            if (con == null) return;
+        Worker w = new Worker();
+        w.setFullName(name);
+        w.setEmail(email);
+        w.setPhone(phone);
+        w.setWorkerType(type);
+        w.setPassword(pass);
 
-            // Check email uniqueness across all tables
-            String checkSql = "SELECT 'resident' FROM residents WHERE lower(email) = ? " +
-                              "UNION SELECT 'worker' FROM workers WHERE lower(email) = ? " +
-                              "UNION SELECT 'admin' FROM admins WHERE lower(email) = ?";
-            try (PreparedStatement ps = con.prepareStatement(checkSql)) {
-                ps.setString(1, email);
-                ps.setString(2, email);
-                ps.setString(3, email);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        JOptionPane.showMessageDialog(this, "The email '" + email + "' is already registered in the system.\nPlease use a unique email.", "Email Already Exists", JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
-                }
+        try {
+            int newWorkerId = adminController.registerWorker(w);
+            if (newWorkerId > 0) {
+                JOptionPane.showMessageDialog(this,
+                        "Worker registered successfully!\n\n" +
+                        "Name: " + name + "\n" +
+                        "Specialty: " + type + "\n" +
+                        "Login Email: " + email + "\n" +
+                        "Worker ID: #" + newWorkerId + "\n\n" +
+                        "Worker is now active and ready for maintenance ticket assignment.",
+                        "Registration Successful", JOptionPane.INFORMATION_MESSAGE);
+
+                clearWorkerForm();
+                loadOverviewData();
+                loadComplaintsData();
+                loadDirectoryData();
             }
-
-            String insSql = "INSERT INTO workers (full_name, email, phone, worker_type, password) VALUES (?, ?, ?, ?, ?)";
-            try (PreparedStatement ps = con.prepareStatement(insSql, Statement.RETURN_GENERATED_KEYS)) {
-                ps.setString(1, name);
-                ps.setString(2, email);
-                ps.setString(3, phone);
-                ps.setString(4, type);
-                ps.setString(5, pass);
-
-                int rows = ps.executeUpdate();
-                if (rows > 0) {
-                    int newWorkerId = 0;
-                    try (ResultSet gk = ps.getGeneratedKeys()) {
-                        if (gk.next()) newWorkerId = gk.getInt(1);
-                    }
-
-                    JOptionPane.showMessageDialog(this,
-                            "Worker registered successfully!\n\n" +
-                            "Name: " + name + "\n" +
-                            "Specialty: " + type + "\n" +
-                            "Login Email: " + email + "\n" +
-                            (newWorkerId > 0 ? "Worker ID: #" + newWorkerId : "") + "\n\n" +
-                            "Worker is now active and ready for maintenance ticket assignment.",
-                            "Registration Successful", JOptionPane.INFORMATION_MESSAGE);
-
-                    clearWorkerForm();
-                    loadOverviewData();
-                    loadComplaintsData();
-                    loadDirectoryData();
-                }
-            }
+        } catch (IllegalArgumentException iae) {
+            JOptionPane.showMessageDialog(this, iae.getMessage(), "Registration Error", JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex) {
             LoginFrame.showDbError(ex);
         }
@@ -1766,29 +1592,21 @@ public class AdminDashboard extends JFrame {
         residentsModel.setRowCount(0);
         workersModel.setRowCount(0);
 
-        int resCount = 0;
-        try (Connection con = DBConnection.getConnection()) {
-            if (con == null) return;
-
-            String resSql = "SELECT resident_id, full_name, apartment_no, email, phone, vehicle_no, parking_slot, created_at::DATE AS reg_date " +
-                            "FROM residents ORDER BY apartment_no ASC, resident_id ASC";
-            try (Statement st = con.createStatement();
-                 ResultSet rs = st.executeQuery(resSql)) {
-                while (rs.next()) {
-                    resCount++;
-                    java.sql.Date d = rs.getDate("reg_date");
-                    residentsModel.addRow(new Object[]{
-                            rs.getInt("resident_id"),
-                            rs.getString("full_name"),
-                            rs.getString("apartment_no"),
-                            rs.getString("email"),
-                            rs.getString("phone") != null ? rs.getString("phone") : "-",
-                            rs.getString("vehicle_no") != null ? rs.getString("vehicle_no") : "-",
-                            rs.getString("parking_slot") != null ? rs.getString("parking_slot") : "-",
-                            d != null ? d.toString() : "-"
-                    });
-                }
+        try {
+            List<Resident> residents = adminController.getAllResidents();
+            for (Resident r : residents) {
+                residentsModel.addRow(new Object[]{
+                        r.getResidentId(),
+                        r.getFullName(),
+                        r.getApartmentNo(),
+                        r.getEmail(),
+                        r.getPhone() != null ? r.getPhone() : "-",
+                        r.getVehicleNo() != null ? r.getVehicleNo() : "-",
+                        r.getParkingSlot() != null ? r.getParkingSlot() : "-",
+                        r.getCreatedAt() != null ? r.getCreatedAt().toString().substring(0, Math.min(10, r.getCreatedAt().toString().length())) : "-"
+                });
             }
+            int resCount = residents.size();
             residentsCountSummary.setText("Total Residents: " + resCount + " | Double-click any resident row to view / edit profile");
             if (dirResidentsTabBtn != null) {
                 dirResidentsTabBtn.setText("👥 Residents Directory (" + resCount + ")");
@@ -1799,11 +1617,9 @@ public class AdminDashboard extends JFrame {
                 String curSelected = (String) workerRoleFilterCombo.getSelectedItem();
                 workerRoleFilterCombo.removeAllItems();
                 workerRoleFilterCombo.addItem("All Roles");
-                try (Statement st = con.createStatement();
-                     ResultSet rs = st.executeQuery("SELECT DISTINCT worker_type FROM workers WHERE worker_type IS NOT NULL AND worker_type != '' ORDER BY worker_type")) {
-                    while (rs.next()) {
-                        workerRoleFilterCombo.addItem(rs.getString(1));
-                    }
+                List<String> types = adminController.getDistinctWorkerTypes();
+                for (String t : types) {
+                    workerRoleFilterCombo.addItem(t);
                 }
                 if (curSelected != null) {
                     workerRoleFilterCombo.setSelectedItem(curSelected);
@@ -1811,31 +1627,20 @@ public class AdminDashboard extends JFrame {
             }
 
             // Load workers
-            int workerCount = 0;
-            String wSql = "SELECT w.worker_id, w.full_name, w.worker_type, w.email, w.phone, w.created_at::DATE AS join_date, " +
-                          "COUNT(CASE WHEN c.status IN ('ASSIGNED', 'IN_PROGRESS', 'IN PROGRESS') THEN 1 END) AS active_cnt, " +
-                          "COUNT(CASE WHEN c.status IN ('COMPLETED', 'RESOLVED') THEN 1 END) AS resolved_cnt " +
-                          "FROM workers w " +
-                          "LEFT JOIN complaints c ON w.worker_id = c.worker_id " +
-                          "GROUP BY w.worker_id, w.full_name, w.worker_type, w.email, w.phone, w.created_at " +
-                          "ORDER BY w.worker_id ASC";
-            try (Statement st = con.createStatement();
-                 ResultSet rs = st.executeQuery(wSql)) {
-                while (rs.next()) {
-                    workerCount++;
-                    java.sql.Date d = rs.getDate("join_date");
-                    workersModel.addRow(new Object[]{
-                            rs.getInt("worker_id"),
-                            rs.getString("full_name"),
-                            rs.getString("worker_type"),
-                            rs.getString("email"),
-                            rs.getString("phone") != null ? rs.getString("phone") : "-",
-                            rs.getInt("active_cnt"),
-                            rs.getInt("resolved_cnt"),
-                            d != null ? d.toString() : "-"
-                    });
-                }
+            List<Worker> workers = adminController.getAllWorkersWithWorkload();
+            for (Worker w : workers) {
+                workersModel.addRow(new Object[]{
+                        w.getWorkerId(),
+                        w.getFullName(),
+                        w.getWorkerType(),
+                        w.getEmail(),
+                        w.getPhone() != null ? w.getPhone() : "-",
+                        w.getActiveTasks(),
+                        w.getCompletedTasks(),
+                        w.getCreatedAt() != null ? w.getCreatedAt().toString().substring(0, Math.min(10, w.getCreatedAt().toString().length())) : "-"
+                });
             }
+            int workerCount = workers.size();
             workersCountSummary.setText("Total Workers: " + workerCount + " | Double-click any worker row to view / edit profile");
             if (dirWorkersTabBtn != null) {
                 dirWorkersTabBtn.setText("🔧 Workers & Staff (" + workerCount + ")");
@@ -1855,33 +1660,26 @@ public class AdminDashboard extends JFrame {
         int modelRow = residentsTable.convertRowIndexToModel(viewRow);
         int resId = (int) residentsModel.getValueAt(modelRow, 0);
 
-        String curName = "", curEmail = "", curPhone = "", curApt = "", curVehicle = "", curParking = "";
-        try (Connection con = DBConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement("SELECT full_name, email, phone, apartment_no, vehicle_no, parking_slot FROM residents WHERE resident_id = ?")) {
-            ps.setInt(1, resId);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    curName = rs.getString("full_name");
-                    curEmail = rs.getString("email");
-                    curPhone = rs.getString("phone") != null ? rs.getString("phone") : "";
-                    curApt = rs.getString("apartment_no");
-                    curVehicle = rs.getString("vehicle_no") != null ? rs.getString("vehicle_no") : "";
-                    curParking = rs.getString("parking_slot") != null ? rs.getString("parking_slot") : "";
-                }
+        Resident resident;
+        try {
+            resident = adminController.getResidentById(resId);
+            if (resident == null) {
+                JOptionPane.showMessageDialog(this, "Resident not found.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
             }
         } catch (Exception ex) {
             LoginFrame.showDbError(ex);
             return;
         }
 
-        JTextField nameField = new JTextField(curName);
-        JTextField emailField = new JTextField(curEmail);
+        JTextField nameField = new JTextField(resident.getFullName());
+        JTextField emailField = new JTextField(resident.getEmail());
         emailField.setEditable(false);
         emailField.setBackground(new Color(245, 242, 237));
-        JTextField phoneField = new JTextField(curPhone);
-        JTextField aptField = new JTextField(curApt);
-        JTextField vehField = new JTextField(curVehicle);
-        JTextField parkField = new JTextField(curParking);
+        JTextField phoneField = new JTextField(resident.getPhone() != null ? resident.getPhone() : "");
+        JTextField aptField = new JTextField(resident.getApartmentNo());
+        JTextField vehField = new JTextField(resident.getVehicleNo() != null ? resident.getVehicleNo() : "");
+        JTextField parkField = new JTextField(resident.getParkingSlot() != null ? resident.getParkingSlot() : "");
         JPasswordField passField = new JPasswordField();
 
         JPanel form = new JPanel(new GridLayout(0, 1, 4, 4));
@@ -1916,43 +1714,22 @@ public class AdminDashboard extends JFrame {
             return;
         }
 
-        try (Connection con = DBConnection.getConnection()) {
-            String sql;
-            if (newPass.isEmpty()) {
-                sql = "UPDATE residents SET full_name = ?, phone = ?, apartment_no = ?, vehicle_no = ?, parking_slot = ? WHERE resident_id = ?";
-            } else {
-                sql = "UPDATE residents SET full_name = ?, phone = ?, apartment_no = ?, vehicle_no = ?, parking_slot = ?, password = ? WHERE resident_id = ?";
-            }
+        resident.setFullName(newName);
+        resident.setApartmentNo(newApt);
+        resident.setPhone(newPhone);
+        resident.setVehicleNo(newVeh.isEmpty() ? null : newVeh);
+        resident.setParkingSlot(newPark.isEmpty() ? null : newPark);
+        if (!newPass.isEmpty()) {
+            resident.setPassword(newPass);
+        }
 
-            try (PreparedStatement ps = con.prepareStatement(sql)) {
-                ps.setString(1, newName);
-                ps.setString(2, newPhone);
-                ps.setString(3, newApt);
-                ps.setString(4, newVeh.isEmpty() ? null : newVeh);
-                ps.setString(5, newPark.isEmpty() ? null : newPark);
-                if (newPass.isEmpty()) {
-                    ps.setInt(6, resId);
-                } else {
-                    ps.setString(6, newPass);
-                    ps.setInt(7, resId);
-                }
-                ps.executeUpdate();
+        try {
+            boolean ok = adminController.updateResident(resident, !newPass.isEmpty());
+            if (ok) {
+                JOptionPane.showMessageDialog(this, "Resident details updated successfully!");
+                loadDirectoryData();
+                loadOverviewData();
             }
-
-            if (!newPark.isEmpty()) {
-                try (PreparedStatement pps = con.prepareStatement(
-                        "INSERT INTO parking (slot_number, parking_type, status, resident_id) " +
-                        "VALUES (?, 'RESIDENT', 'OCCUPIED', ?) " +
-                        "ON CONFLICT (slot_number) DO UPDATE SET resident_id = EXCLUDED.resident_id, status = 'OCCUPIED'")) {
-                    pps.setString(1, newPark);
-                    pps.setInt(2, resId);
-                    pps.executeUpdate();
-                } catch (Exception ignored) {}
-            }
-
-            JOptionPane.showMessageDialog(this, "Resident details updated successfully!");
-            loadDirectoryData();
-            loadOverviewData();
         } catch (Exception ex) {
             LoginFrame.showDbError(ex);
         }
@@ -1981,11 +1758,9 @@ public class AdminDashboard extends JFrame {
 
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        try (Connection con = DBConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement("DELETE FROM residents WHERE resident_id = ?")) {
-            ps.setInt(1, resId);
-            int rows = ps.executeUpdate();
-            if (rows > 0) {
+        try {
+            boolean ok = adminController.deleteResident(resId);
+            if (ok) {
                 JOptionPane.showMessageDialog(this, "Resident '" + resName + "' removed successfully.");
                 loadDirectoryData();
                 loadOverviewData();
@@ -2006,34 +1781,29 @@ public class AdminDashboard extends JFrame {
         int modelRow = workersTable.convertRowIndexToModel(viewRow);
         int workerId = (int) workersModel.getValueAt(modelRow, 0);
 
-        String curName = "", curEmail = "", curPhone = "", curType = "";
-        try (Connection con = DBConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement("SELECT full_name, email, phone, worker_type FROM workers WHERE worker_id = ?")) {
-            ps.setInt(1, workerId);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    curName = rs.getString("full_name");
-                    curEmail = rs.getString("email");
-                    curPhone = rs.getString("phone") != null ? rs.getString("phone") : "";
-                    curType = rs.getString("worker_type") != null ? rs.getString("worker_type") : "";
-                }
+        Worker worker;
+        try {
+            worker = adminController.getWorkerById(workerId);
+            if (worker == null) {
+                JOptionPane.showMessageDialog(this, "Worker not found.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
             }
         } catch (Exception ex) {
             LoginFrame.showDbError(ex);
             return;
         }
 
-        JTextField nameField = new JTextField(curName);
-        JTextField emailField = new JTextField(curEmail);
+        JTextField nameField = new JTextField(worker.getFullName());
+        JTextField emailField = new JTextField(worker.getEmail());
         emailField.setEditable(false);
         emailField.setBackground(new Color(245, 242, 237));
-        JTextField phoneField = new JTextField(curPhone);
+        JTextField phoneField = new JTextField(worker.getPhone() != null ? worker.getPhone() : "");
         JComboBox<String> typeCombo = new JComboBox<>(new String[] {
                 "Electrician", "Plumber", "Security", "Cleaning / Housekeeping",
                 "Carpenter", "Gardener", "HVAC / AC Repair", "General Maintenance", "Other"
         });
         typeCombo.setEditable(true);
-        typeCombo.setSelectedItem(curType);
+        typeCombo.setSelectedItem(worker.getWorkerType() != null ? worker.getWorkerType() : "");
         JPasswordField passField = new JPasswordField();
 
         JPanel form = new JPanel(new GridLayout(0, 1, 4, 4));
@@ -2062,31 +1832,21 @@ public class AdminDashboard extends JFrame {
             return;
         }
 
-        try (Connection con = DBConnection.getConnection()) {
-            String sql;
-            if (newPass.isEmpty()) {
-                sql = "UPDATE workers SET full_name = ?, phone = ?, worker_type = ? WHERE worker_id = ?";
-            } else {
-                sql = "UPDATE workers SET full_name = ?, phone = ?, worker_type = ?, password = ? WHERE worker_id = ?";
-            }
+        worker.setFullName(newName);
+        worker.setWorkerType(newType);
+        worker.setPhone(newPhone);
+        if (!newPass.isEmpty()) {
+            worker.setPassword(newPass);
+        }
 
-            try (PreparedStatement ps = con.prepareStatement(sql)) {
-                ps.setString(1, newName);
-                ps.setString(2, newPhone);
-                ps.setString(3, newType);
-                if (newPass.isEmpty()) {
-                    ps.setInt(4, workerId);
-                } else {
-                    ps.setString(4, newPass);
-                    ps.setInt(5, workerId);
-                }
-                ps.executeUpdate();
+        try {
+            boolean ok = adminController.updateWorker(worker, !newPass.isEmpty());
+            if (ok) {
+                JOptionPane.showMessageDialog(this, "Worker details updated successfully!");
+                loadDirectoryData();
+                loadOverviewData();
+                loadComplaintsData();
             }
-
-            JOptionPane.showMessageDialog(this, "Worker details updated successfully!");
-            loadDirectoryData();
-            loadOverviewData();
-            loadComplaintsData();
         } catch (Exception ex) {
             LoginFrame.showDbError(ex);
         }
@@ -2121,33 +1881,13 @@ public class AdminDashboard extends JFrame {
 
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        try (Connection con = DBConnection.getConnection()) {
-            con.setAutoCommit(false);
-            try {
-                // Revert any active complaints assigned to this worker to PENDING
-                try (PreparedStatement ps1 = con.prepareStatement(
-                        "UPDATE complaints SET worker_id = NULL, status = 'PENDING' " +
-                        "WHERE worker_id = ? AND status IN ('ASSIGNED', 'IN_PROGRESS', 'IN PROGRESS')")) {
-                    ps1.setInt(1, workerId);
-                    ps1.executeUpdate();
-                }
-
-                // Delete worker
-                try (PreparedStatement ps2 = con.prepareStatement("DELETE FROM workers WHERE worker_id = ?")) {
-                    ps2.setInt(1, workerId);
-                    ps2.executeUpdate();
-                }
-
-                con.commit();
+        try {
+            boolean ok = adminController.deleteWorker(workerId);
+            if (ok) {
                 JOptionPane.showMessageDialog(this, "Worker '" + workerName + "' removed successfully.");
                 loadDirectoryData();
                 loadOverviewData();
                 loadComplaintsData();
-            } catch (Exception ex) {
-                con.rollback();
-                throw ex;
-            } finally {
-                con.setAutoCommit(true);
             }
         } catch (Exception ex) {
             LoginFrame.showDbError(ex);
