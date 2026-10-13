@@ -5,7 +5,10 @@ import database.DBConnection;
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -13,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class AdminDashboard extends JFrame {
     private final int adminId;
@@ -60,6 +64,50 @@ public class AdminDashboard extends JFrame {
         public boolean isCellEditable(int r, int c) { return false; }
     };
     private final JTable paymentsTable = new JTable(paymentsModel);
+
+    // Directory Components
+    private final DefaultTableModel residentsModel = new DefaultTableModel(
+            new String[] { "ID", "Full Name", "Apt", "Email", "Phone", "Vehicle No", "Parking Slot", "Joined Date" }, 0) {
+        public boolean isCellEditable(int r, int c) { return false; }
+    };
+    private final JTable residentsTable = new JTable(residentsModel);
+    private TableRowSorter<DefaultTableModel> residentsSorter;
+    private final JLabel residentsCountSummary = new JLabel("Total Residents: 0");
+
+    private final DefaultTableModel workersModel = new DefaultTableModel(
+            new String[] { "ID", "Full Name", "Specialty / Role", "Email", "Phone", "Active Tasks", "Resolved", "Joined Date" }, 0) {
+        public boolean isCellEditable(int r, int c) { return false; }
+    };
+    private final JTable workersTable = new JTable(workersModel);
+    private TableRowSorter<DefaultTableModel> workersSorter;
+    private final JLabel workersCountSummary = new JLabel("Total Workers: 0");
+    private JComboBox<String> workerRoleFilterCombo;
+
+    private JButton dirResidentsTabBtn;
+    private JButton dirWorkersTabBtn;
+    private CardLayout dirCardLayout;
+    private JPanel dirCardContainer;
+
+    // Navigation Buttons Map for Active State Highlighting
+    private final java.util.Map<String, JButton> navButtons = new java.util.HashMap<>();
+
+    // Registration Form Inputs
+    private final JTextField regResNameField = new JTextField();
+    private final JTextField regResEmailField = new JTextField();
+    private final JTextField regResPhoneField = new JTextField();
+    private final JTextField regResAptField = new JTextField();
+    private final JPasswordField regResPassField = new JPasswordField();
+    private final JTextField regResVehicleField = new JTextField();
+    private final JTextField regResParkingField = new JTextField();
+
+    private final JTextField regWorkerNameField = new JTextField();
+    private final JTextField regWorkerEmailField = new JTextField();
+    private final JTextField regWorkerPhoneField = new JTextField();
+    private final JComboBox<String> regWorkerTypeCombo = new JComboBox<>(new String[] {
+            "Electrician", "Plumber", "Security", "Cleaning / Housekeeping",
+            "Carpenter", "Gardener", "HVAC / AC Repair", "General Maintenance", "Other"
+    });
+    private final JPasswordField regWorkerPassField = new JPasswordField();
 
     public static class WorkerItem {
         public final int id;
@@ -116,31 +164,46 @@ public class AdminDashboard extends JFrame {
         root.add(sidebar, BorderLayout.WEST);
 
         JLabel logo = new JLabel("A-partment");
-        logo.setBounds(20, 25, 180, 30);
+        logo.setBounds(20, 22, 180, 28);
         logo.setForeground(CREAM);
         logo.setFont(new Font("Segoe UI", Font.BOLD, 22));
         sidebar.add(logo);
 
         JLabel logoSub = new JLabel("Admin Portal");
-        logoSub.setBounds(20, 55, 180, 20);
+        logoSub.setBounds(20, 50, 180, 18);
         logoSub.setForeground(new Color(185, 155, 130));
         logoSub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         sidebar.add(logoSub);
 
         JButton overviewBtn = createSidebarButton("Overview", getNavIcon("OVERVIEW"));
-        overviewBtn.setBounds(20, 100, 180, 42);
+        overviewBtn.setBounds(20, 88, 180, 40);
         overviewBtn.addActionListener(e -> showView("OVERVIEW"));
         sidebar.add(overviewBtn);
+        navButtons.put("OVERVIEW", overviewBtn);
 
         JButton complaintsBtn = createSidebarButton("Complaints", getNavIcon("COMPLAINTS"));
-        complaintsBtn.setBounds(20, 152, 180, 42);
+        complaintsBtn.setBounds(20, 138, 180, 40);
         complaintsBtn.addActionListener(e -> showView("COMPLAINTS"));
         sidebar.add(complaintsBtn);
+        navButtons.put("COMPLAINTS", complaintsBtn);
 
         JButton billingBtn = createSidebarButton("Billing & Dues", getNavIcon("PAYMENTS"));
-        billingBtn.setBounds(20, 204, 180, 42);
+        billingBtn.setBounds(20, 188, 180, 40);
         billingBtn.addActionListener(e -> showView("BILLING"));
         sidebar.add(billingBtn);
+        navButtons.put("BILLING", billingBtn);
+
+        JButton registerBtn = createSidebarButton("Register User", getNavIcon("REGISTER"));
+        registerBtn.setBounds(20, 238, 180, 40);
+        registerBtn.addActionListener(e -> showView("REGISTER"));
+        sidebar.add(registerBtn);
+        navButtons.put("REGISTER", registerBtn);
+
+        JButton directoryBtn = createSidebarButton("Manage Directory", getNavIcon("DIRECTORY"));
+        directoryBtn.setBounds(20, 288, 180, 40);
+        directoryBtn.addActionListener(e -> showView("DIRECTORY"));
+        sidebar.add(directoryBtn);
+        navButtons.put("DIRECTORY", directoryBtn);
 
         JButton logoutBtn = new JButton("Logout");
         logoutBtn.setBounds(20, 650, 180, 40);
@@ -167,6 +230,8 @@ public class AdminDashboard extends JFrame {
         mainContainer.add(createOverviewPanel(), "OVERVIEW");
         mainContainer.add(createComplaintsPanel(), "COMPLAINTS");
         mainContainer.add(createBillingPanel(), "BILLING");
+        mainContainer.add(createRegisterPanel(), "REGISTER");
+        mainContainer.add(createDirectoryPanel(), "DIRECTORY");
         root.add(mainContainer, BorderLayout.CENTER);
 
         showView("OVERVIEW");
@@ -177,12 +242,31 @@ public class AdminDashboard extends JFrame {
         currentView = viewName;
         cardLayout.show(mainContainer, viewName);
 
+        // Highlight active sidebar button
+        for (java.util.Map.Entry<String, JButton> entry : navButtons.entrySet()) {
+            if (entry.getKey().equals(viewName)) {
+                entry.getValue().setBackground(new Color(105, 70, 52));
+                entry.getValue().setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(AMBER, 1),
+                        BorderFactory.createEmptyBorder(0, 16, 0, 10)
+                ));
+            } else {
+                entry.getValue().setBackground(new Color(68, 46, 35));
+                entry.getValue().setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(98, 70, 54), 1),
+                        BorderFactory.createEmptyBorder(0, 16, 0, 10)
+                ));
+            }
+        }
+
         if ("OVERVIEW".equals(viewName)) {
             loadOverviewData();
         } else if ("COMPLAINTS".equals(viewName)) {
             loadComplaintsData();
         } else if ("BILLING".equals(viewName)) {
             loadBillingData();
+        } else if ("DIRECTORY".equals(viewName)) {
+            loadDirectoryData();
         }
     }
 
@@ -532,6 +616,570 @@ public class AdminDashboard extends JFrame {
         tablePanel.add(scrollPane);
 
         return panel;
+    }
+
+    // ==========================================
+    // 4. REGISTRATION VIEW (RESIDENT & WORKER)
+    // ==========================================
+    private JPanel createRegisterPanel() {
+        JPanel panel = new JPanel(null);
+        panel.setBackground(CREAM);
+        panel.add(createTopBar("Registration Portal — Add Residents & Workers"));
+
+        // Left Card: Resident Registration
+        JPanel resCard = new JPanel(null);
+        resCard.setBounds(30, 80, 435, 620);
+        resCard.setBackground(Color.WHITE);
+        resCard.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        panel.add(resCard);
+
+        JLabel resTitle = new JLabel("Register New Resident");
+        resTitle.setBounds(24, 16, 385, 24);
+        resTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        resTitle.setForeground(COFFEE);
+        resCard.add(resTitle);
+
+        JLabel resSub = new JLabel("Create profile, credentials, and flat details");
+        resSub.setBounds(24, 40, 385, 18);
+        resSub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        resSub.setForeground(new Color(130, 105, 85));
+        resCard.add(resSub);
+
+        JSeparator sep1 = new JSeparator();
+        sep1.setBounds(24, 64, 385, 1);
+        sep1.setForeground(LINE);
+        resCard.add(sep1);
+
+        int ry = 70;
+        int step = 56;
+
+        JLabel nameLbl = createFormLabel("Full Name *");
+        nameLbl.setBounds(24, ry, 385, 16);
+        resCard.add(nameLbl);
+        styleField(regResNameField);
+        regResNameField.setBounds(24, ry + 18, 385, 32);
+        resCard.add(regResNameField);
+
+        ry += step;
+        JLabel emailLbl = createFormLabel("Email Address * (Login ID)");
+        emailLbl.setBounds(24, ry, 385, 16);
+        resCard.add(emailLbl);
+        styleField(regResEmailField);
+        regResEmailField.setBounds(24, ry + 18, 385, 32);
+        resCard.add(regResEmailField);
+
+        ry += step;
+        JLabel phoneLbl = createFormLabel("Phone Number *");
+        phoneLbl.setBounds(24, ry, 385, 16);
+        resCard.add(phoneLbl);
+        styleField(regResPhoneField);
+        regResPhoneField.setBounds(24, ry + 18, 385, 32);
+        resCard.add(regResPhoneField);
+
+        ry += step;
+        JLabel aptLbl = createFormLabel("Apartment Number * (e.g. A-101, B-402)");
+        aptLbl.setBounds(24, ry, 385, 16);
+        resCard.add(aptLbl);
+        styleField(regResAptField);
+        regResAptField.setBounds(24, ry + 18, 385, 32);
+        resCard.add(regResAptField);
+
+        ry += step;
+        JLabel passLbl = createFormLabel("Initial Password *");
+        passLbl.setBounds(24, ry, 385, 16);
+        resCard.add(passLbl);
+        styleField(regResPassField);
+        regResPassField.setBounds(24, ry + 18, 385, 32);
+        resCard.add(regResPassField);
+
+        ry += step;
+        JLabel vehLbl = createFormLabel("Vehicle Number (Optional, e.g. KA-01-AB-1234)");
+        vehLbl.setBounds(24, ry, 385, 16);
+        resCard.add(vehLbl);
+        styleField(regResVehicleField);
+        regResVehicleField.setBounds(24, ry + 18, 385, 32);
+        resCard.add(regResVehicleField);
+
+        ry += step;
+        JLabel parkLbl = createFormLabel("Assigned Parking Slot (Optional, e.g. A-01, P-12)");
+        parkLbl.setBounds(24, ry, 385, 16);
+        resCard.add(parkLbl);
+        styleField(regResParkingField);
+        regResParkingField.setBounds(24, ry + 18, 385, 32);
+        resCard.add(regResParkingField);
+
+        JButton regResBtn = new JButton("✓ Register Resident");
+        regResBtn.setBounds(24, 480, 245, 38);
+        regResBtn.setBackground(new Color(40, 135, 75));
+        regResBtn.setForeground(Color.WHITE);
+        regResBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        regResBtn.setFocusPainted(false);
+        regResBtn.setBorder(BorderFactory.createLineBorder(new Color(30, 110, 60), 1));
+        regResBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        regResBtn.addActionListener(e -> registerResident());
+        resCard.add(regResBtn);
+
+        JButton clearResBtn = new JButton("Clear");
+        clearResBtn.setBounds(280, 480, 129, 38);
+        clearResBtn.setBackground(new Color(242, 231, 215));
+        clearResBtn.setForeground(COFFEE);
+        clearResBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        clearResBtn.setFocusPainted(false);
+        clearResBtn.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        clearResBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        clearResBtn.addActionListener(e -> clearResidentForm());
+        resCard.add(clearResBtn);
+
+        JPanel resInfoBox = new JPanel(null);
+        resInfoBox.setBounds(24, 532, 385, 70);
+        resInfoBox.setBackground(new Color(248, 244, 238));
+        resInfoBox.setBorder(BorderFactory.createLineBorder(new Color(230, 218, 203), 1));
+        JLabel resInfoIcon = new JLabel("ℹ️");
+        resInfoIcon.setBounds(12, 12, 24, 24);
+        resInfoBox.add(resInfoIcon);
+        JLabel resInfoTxt = new JLabel("<html><b>Resident Portal Access:</b> Registered residents can immediately log in to submit complaints, invite visitors, and view society billing records.</html>");
+        resInfoTxt.setBounds(38, 8, 335, 52);
+        resInfoTxt.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        resInfoTxt.setForeground(new Color(85, 60, 45));
+        resInfoBox.add(resInfoTxt);
+        resCard.add(resInfoBox);
+
+        // Right Card: Worker Registration
+        JPanel workerCard = new JPanel(null);
+        workerCard.setBounds(495, 80, 435, 620);
+        workerCard.setBackground(Color.WHITE);
+        workerCard.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        panel.add(workerCard);
+
+        JLabel workerTitle = new JLabel("Register New Worker / Staff");
+        workerTitle.setBounds(24, 16, 385, 24);
+        workerTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        workerTitle.setForeground(COFFEE);
+        workerCard.add(workerTitle);
+
+        JLabel workerSub = new JLabel("Assign trade specialty role and staff login");
+        workerSub.setBounds(24, 40, 385, 18);
+        workerSub.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        workerSub.setForeground(new Color(130, 105, 85));
+        workerCard.add(workerSub);
+
+        JSeparator sep2 = new JSeparator();
+        sep2.setBounds(24, 64, 385, 1);
+        sep2.setForeground(LINE);
+        workerCard.add(sep2);
+
+        int wy = 70;
+
+        JLabel wNameLbl = createFormLabel("Full Name *");
+        wNameLbl.setBounds(24, wy, 385, 16);
+        workerCard.add(wNameLbl);
+        styleField(regWorkerNameField);
+        regWorkerNameField.setBounds(24, wy + 18, 385, 32);
+        workerCard.add(regWorkerNameField);
+
+        wy += step;
+        JLabel wEmailLbl = createFormLabel("Email Address * (Staff Login ID)");
+        wEmailLbl.setBounds(24, wy, 385, 16);
+        workerCard.add(wEmailLbl);
+        styleField(regWorkerEmailField);
+        regWorkerEmailField.setBounds(24, wy + 18, 385, 32);
+        workerCard.add(regWorkerEmailField);
+
+        wy += step;
+        JLabel wPhoneLbl = createFormLabel("Phone Number *");
+        wPhoneLbl.setBounds(24, wy, 385, 16);
+        workerCard.add(wPhoneLbl);
+        styleField(regWorkerPhoneField);
+        regWorkerPhoneField.setBounds(24, wy + 18, 385, 32);
+        workerCard.add(regWorkerPhoneField);
+
+        wy += step;
+        JLabel wRoleLbl = createFormLabel("Specialty / Trade Role *");
+        wRoleLbl.setBounds(24, wy, 385, 16);
+        workerCard.add(wRoleLbl);
+        regWorkerTypeCombo.setBounds(24, wy + 18, 385, 32);
+        regWorkerTypeCombo.setBackground(Color.WHITE);
+        regWorkerTypeCombo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        workerCard.add(regWorkerTypeCombo);
+
+        wy += step;
+        JLabel wPassLbl = createFormLabel("Initial Password *");
+        wPassLbl.setBounds(24, wy, 385, 16);
+        workerCard.add(wPassLbl);
+        styleField(regWorkerPassField);
+        regWorkerPassField.setBounds(24, wy + 18, 385, 32);
+        workerCard.add(regWorkerPassField);
+
+        // Explanatory Banner
+        JPanel wBanner = new JPanel(null);
+        wBanner.setBounds(24, 370, 385, 90);
+        wBanner.setBackground(new Color(248, 244, 238));
+        wBanner.setBorder(BorderFactory.createLineBorder(new Color(230, 218, 203), 1));
+        JLabel wBannerIcon = new JLabel("🛠️");
+        wBannerIcon.setBounds(12, 14, 24, 24);
+        wBanner.add(wBannerIcon);
+        JLabel wBannerTxt = new JLabel("<html><b>Smart Dispatch Integration:</b> Once registered, this worker will automatically be matched and assigned incoming complaints categorized under their specialty (e.g. Electrical, Plumbing, Security).</html>");
+        wBannerTxt.setBounds(40, 10, 332, 68);
+        wBannerTxt.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        wBannerTxt.setForeground(new Color(85, 60, 45));
+        wBanner.add(wBannerTxt);
+        workerCard.add(wBanner);
+
+        JButton regWorkerBtn = new JButton("✓ Register Worker");
+        regWorkerBtn.setBounds(24, 480, 245, 38);
+        regWorkerBtn.setBackground(AMBER);
+        regWorkerBtn.setForeground(Color.WHITE);
+        regWorkerBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        regWorkerBtn.setFocusPainted(false);
+        regWorkerBtn.setBorder(BorderFactory.createLineBorder(new Color(160, 95, 38), 1));
+        regWorkerBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        regWorkerBtn.addActionListener(e -> registerWorker());
+        workerCard.add(regWorkerBtn);
+
+        JButton clearWorkerBtn = new JButton("Clear");
+        clearWorkerBtn.setBounds(280, 480, 129, 38);
+        clearWorkerBtn.setBackground(new Color(242, 231, 215));
+        clearWorkerBtn.setForeground(COFFEE);
+        clearWorkerBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        clearWorkerBtn.setFocusPainted(false);
+        clearWorkerBtn.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        clearWorkerBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        clearWorkerBtn.addActionListener(e -> clearWorkerForm());
+        workerCard.add(clearWorkerBtn);
+
+        JPanel wFooterBox = new JPanel(null);
+        wFooterBox.setBounds(24, 532, 385, 70);
+        wFooterBox.setBackground(new Color(254, 250, 244));
+        wFooterBox.setBorder(BorderFactory.createLineBorder(new Color(236, 224, 209), 1));
+        JLabel wFooterIcon = new JLabel("📱");
+        wFooterIcon.setBounds(12, 12, 24, 24);
+        wFooterBox.add(wFooterIcon);
+        JLabel wFooterTxt = new JLabel("<html><b>Staff Dashboard:</b> Workers log into their dedicated dashboard to start/complete tasks, review assignments, and log completion notes.</html>");
+        wFooterTxt.setBounds(38, 8, 335, 52);
+        wFooterTxt.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        wFooterTxt.setForeground(new Color(85, 60, 45));
+        wFooterBox.add(wFooterTxt);
+        workerCard.add(wFooterBox);
+
+        return panel;
+    }
+
+    // ==========================================
+    // 5. DIRECTORY & USER MANAGEMENT VIEW
+    // ==========================================
+    private JPanel createDirectoryPanel() {
+        JPanel panel = new JPanel(null);
+        panel.setBackground(CREAM);
+        panel.add(createTopBar("Society Directory — Manage Residents & Staff"));
+
+        // Tab Switchers
+        dirResidentsTabBtn = new JButton("👥 Residents Directory");
+        dirResidentsTabBtn.setBounds(30, 78, 440, 40);
+        dirResidentsTabBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        dirResidentsTabBtn.setFocusPainted(false);
+        dirResidentsTabBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        dirWorkersTabBtn = new JButton("🔧 Workers & Staff");
+        dirWorkersTabBtn.setBounds(490, 78, 440, 40);
+        dirWorkersTabBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        dirWorkersTabBtn.setFocusPainted(false);
+        dirWorkersTabBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        panel.add(dirResidentsTabBtn);
+        panel.add(dirWorkersTabBtn);
+
+        dirCardLayout = new CardLayout();
+        dirCardContainer = new JPanel(dirCardLayout);
+        dirCardContainer.setBounds(30, 126, 900, 580);
+        dirCardContainer.setOpaque(false);
+        panel.add(dirCardContainer);
+
+        // 1. Residents Sub-panel
+        JPanel resDirPanel = new JPanel(null);
+        resDirPanel.setBackground(Color.WHITE);
+        resDirPanel.setBorder(BorderFactory.createLineBorder(LINE, 1));
+
+        JLabel resSearchLbl = new JLabel("Search:");
+        resSearchLbl.setBounds(16, 14, 50, 30);
+        resSearchLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        resSearchLbl.setForeground(COFFEE);
+        resDirPanel.add(resSearchLbl);
+
+        JTextField resSearchField = new JTextField();
+        styleField(resSearchField);
+        resSearchField.setBounds(68, 14, 210, 32);
+        resDirPanel.add(resSearchField);
+
+        JButton resClearBtn = new JButton("Clear");
+        resClearBtn.setBounds(286, 14, 65, 32);
+        resClearBtn.setBackground(new Color(242, 231, 215));
+        resClearBtn.setForeground(COFFEE);
+        resClearBtn.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        resClearBtn.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        resClearBtn.setFocusPainted(false);
+        resClearBtn.addActionListener(e -> {
+            resSearchField.setText("");
+            if (residentsSorter != null) residentsSorter.setRowFilter(null);
+        });
+        resDirPanel.add(resClearBtn);
+
+        JButton editResBtn = new JButton("✏️ Edit Resident");
+        editResBtn.setBounds(465, 14, 130, 32);
+        editResBtn.setBackground(new Color(242, 231, 215));
+        editResBtn.setForeground(COFFEE);
+        editResBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        editResBtn.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        editResBtn.setFocusPainted(false);
+        editResBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        editResBtn.addActionListener(e -> editSelectedResident());
+        resDirPanel.add(editResBtn);
+
+        JButton delResBtn = new JButton("🗑️ Remove Resident");
+        delResBtn.setBounds(603, 14, 145, 32);
+        delResBtn.setBackground(new Color(245, 222, 220));
+        delResBtn.setForeground(new Color(165, 30, 30));
+        delResBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        delResBtn.setBorder(BorderFactory.createLineBorder(new Color(225, 180, 175), 1));
+        delResBtn.setFocusPainted(false);
+        delResBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        delResBtn.addActionListener(e -> deleteSelectedResident());
+        resDirPanel.add(delResBtn);
+
+        JButton refreshResBtn = new JButton("🔄 Refresh");
+        refreshResBtn.setBounds(756, 14, 126, 32);
+        refreshResBtn.setBackground(new Color(242, 231, 215));
+        refreshResBtn.setForeground(COFFEE);
+        refreshResBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        refreshResBtn.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        refreshResBtn.setFocusPainted(false);
+        refreshResBtn.addActionListener(e -> loadDirectoryData());
+        resDirPanel.add(refreshResBtn);
+
+        styleTable(residentsTable);
+        residentsTable.getColumnModel().getColumn(0).setPreferredWidth(45);
+        residentsTable.getColumnModel().getColumn(1).setPreferredWidth(140);
+        residentsTable.getColumnModel().getColumn(2).setPreferredWidth(70);
+        residentsTable.getColumnModel().getColumn(3).setPreferredWidth(170);
+        residentsTable.getColumnModel().getColumn(4).setPreferredWidth(105);
+        residentsTable.getColumnModel().getColumn(5).setPreferredWidth(105);
+        residentsTable.getColumnModel().getColumn(6).setPreferredWidth(90);
+        residentsTable.getColumnModel().getColumn(7).setPreferredWidth(95);
+
+        residentsSorter = new TableRowSorter<>(residentsModel);
+        residentsTable.setRowSorter(residentsSorter);
+
+        resSearchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { filter(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { filter(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { filter(); }
+            private void filter() {
+                String txt = resSearchField.getText().trim();
+                if (txt.isEmpty()) {
+                    residentsSorter.setRowFilter(null);
+                } else {
+                    residentsSorter.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(txt)));
+                }
+            }
+        });
+
+        residentsTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    editSelectedResident();
+                }
+            }
+        });
+
+        JScrollPane resScroll = new JScrollPane(residentsTable);
+        resScroll.setBounds(16, 56, 866, 475);
+        resScroll.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        resDirPanel.add(resScroll);
+
+        residentsCountSummary.setBounds(18, 540, 860, 24);
+        residentsCountSummary.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        residentsCountSummary.setForeground(COFFEE);
+        resDirPanel.add(residentsCountSummary);
+
+        // 2. Workers Sub-panel
+        JPanel workerDirPanel = new JPanel(null);
+        workerDirPanel.setBackground(Color.WHITE);
+        workerDirPanel.setBorder(BorderFactory.createLineBorder(LINE, 1));
+
+        JLabel wSearchLbl = new JLabel("Search:");
+        wSearchLbl.setBounds(16, 14, 50, 30);
+        wSearchLbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        wSearchLbl.setForeground(COFFEE);
+        workerDirPanel.add(wSearchLbl);
+
+        JTextField workerSearchField = new JTextField();
+        styleField(workerSearchField);
+        workerSearchField.setBounds(68, 14, 160, 32);
+        workerDirPanel.add(workerSearchField);
+
+        workerRoleFilterCombo = new JComboBox<>();
+        workerRoleFilterCombo.addItem("All Roles");
+        workerRoleFilterCombo.setBounds(236, 14, 140, 32);
+        workerRoleFilterCombo.setBackground(Color.WHITE);
+        workerRoleFilterCombo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        workerDirPanel.add(workerRoleFilterCombo);
+
+        JButton workerClearBtn = new JButton("Clear");
+        workerClearBtn.setBounds(384, 14, 65, 32);
+        workerClearBtn.setBackground(new Color(242, 231, 215));
+        workerClearBtn.setForeground(COFFEE);
+        workerClearBtn.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        workerClearBtn.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        workerClearBtn.setFocusPainted(false);
+        workerClearBtn.addActionListener(e -> {
+            workerSearchField.setText("");
+            workerRoleFilterCombo.setSelectedIndex(0);
+            if (workersSorter != null) workersSorter.setRowFilter(null);
+        });
+        workerDirPanel.add(workerClearBtn);
+
+        JButton editWorkerBtn = new JButton("✏️ Edit Worker");
+        editWorkerBtn.setBounds(465, 14, 130, 32);
+        editWorkerBtn.setBackground(new Color(242, 231, 215));
+        editWorkerBtn.setForeground(COFFEE);
+        editWorkerBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        editWorkerBtn.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        editWorkerBtn.setFocusPainted(false);
+        editWorkerBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        editWorkerBtn.addActionListener(e -> editSelectedWorker());
+        workerDirPanel.add(editWorkerBtn);
+
+        JButton delWorkerBtn = new JButton("🗑️ Remove Worker");
+        delWorkerBtn.setBounds(603, 14, 145, 32);
+        delWorkerBtn.setBackground(new Color(245, 222, 220));
+        delWorkerBtn.setForeground(new Color(165, 30, 30));
+        delWorkerBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        delWorkerBtn.setBorder(BorderFactory.createLineBorder(new Color(225, 180, 175), 1));
+        delWorkerBtn.setFocusPainted(false);
+        delWorkerBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        delWorkerBtn.addActionListener(e -> deleteSelectedWorker());
+        workerDirPanel.add(delWorkerBtn);
+
+        JButton refreshWorkerBtn = new JButton("🔄 Refresh");
+        refreshWorkerBtn.setBounds(756, 14, 126, 32);
+        refreshWorkerBtn.setBackground(new Color(242, 231, 215));
+        refreshWorkerBtn.setForeground(COFFEE);
+        refreshWorkerBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        refreshWorkerBtn.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        refreshWorkerBtn.setFocusPainted(false);
+        refreshWorkerBtn.addActionListener(e -> loadDirectoryData());
+        workerDirPanel.add(refreshWorkerBtn);
+
+        styleTable(workersTable);
+        workersTable.getColumnModel().getColumn(0).setPreferredWidth(45);
+        workersTable.getColumnModel().getColumn(1).setPreferredWidth(145);
+        workersTable.getColumnModel().getColumn(2).setPreferredWidth(125);
+        workersTable.getColumnModel().getColumn(3).setPreferredWidth(170);
+        workersTable.getColumnModel().getColumn(4).setPreferredWidth(105);
+        workersTable.getColumnModel().getColumn(5).setPreferredWidth(85);
+        workersTable.getColumnModel().getColumn(6).setPreferredWidth(85);
+        workersTable.getColumnModel().getColumn(7).setPreferredWidth(95);
+
+        workersSorter = new TableRowSorter<>(workersModel);
+        workersTable.setRowSorter(workersSorter);
+
+        Runnable applyWorkerFilter = () -> {
+            String query = workerSearchField.getText().trim();
+            String role = (String) workerRoleFilterCombo.getSelectedItem();
+            List<RowFilter<DefaultTableModel, Object>> filters = new ArrayList<>();
+            if (!query.isEmpty()) {
+                filters.add(RowFilter.regexFilter("(?i)" + Pattern.quote(query)));
+            }
+            if (role != null && !role.equals("All Roles")) {
+                filters.add(RowFilter.regexFilter("(?i)^" + Pattern.quote(role) + "$", 2));
+            }
+            if (filters.isEmpty()) {
+                workersSorter.setRowFilter(null);
+            } else {
+                workersSorter.setRowFilter(RowFilter.andFilter(filters));
+            }
+        };
+
+        workerSearchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { applyWorkerFilter.run(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { applyWorkerFilter.run(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { applyWorkerFilter.run(); }
+        });
+        workerRoleFilterCombo.addActionListener(e -> applyWorkerFilter.run());
+
+        workersTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
+                if (!isSelected) {
+                    if (col == 5 && value != null) {
+                        try {
+                            int cnt = Integer.parseInt(value.toString());
+                            if (cnt > 0) {
+                                c.setForeground(new Color(205, 115, 25));
+                                c.setFont(c.getFont().deriveFont(Font.BOLD));
+                            } else {
+                                c.setForeground(new Color(24, 134, 75));
+                                c.setFont(c.getFont().deriveFont(Font.PLAIN));
+                            }
+                        } catch (Exception ex) {
+                            c.setForeground(COFFEE);
+                        }
+                    } else {
+                        c.setForeground(COFFEE);
+                        c.setFont(c.getFont().deriveFont(Font.PLAIN));
+                    }
+                }
+                return c;
+            }
+        });
+
+        workersTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    editSelectedWorker();
+                }
+            }
+        });
+
+        JScrollPane wScroll = new JScrollPane(workersTable);
+        wScroll.setBounds(16, 56, 866, 475);
+        wScroll.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        workerDirPanel.add(wScroll);
+
+        workersCountSummary.setBounds(18, 540, 860, 24);
+        workersCountSummary.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        workersCountSummary.setForeground(COFFEE);
+        workerDirPanel.add(workersCountSummary);
+
+        dirCardContainer.add(resDirPanel, "DIR_RESIDENTS");
+        dirCardContainer.add(workerDirPanel, "DIR_WORKERS");
+
+        dirResidentsTabBtn.addActionListener(e -> setDirectorySubView("DIR_RESIDENTS"));
+        dirWorkersTabBtn.addActionListener(e -> setDirectorySubView("DIR_WORKERS"));
+
+        setDirectorySubView("DIR_RESIDENTS");
+        return panel;
+    }
+
+    private void setDirectorySubView(String subView) {
+        dirCardLayout.show(dirCardContainer, subView);
+        if ("DIR_RESIDENTS".equals(subView)) {
+            dirResidentsTabBtn.setBackground(COFFEE);
+            dirResidentsTabBtn.setForeground(CREAM);
+            dirResidentsTabBtn.setBorder(BorderFactory.createLineBorder(new Color(35, 20, 15), 1));
+            dirWorkersTabBtn.setBackground(new Color(242, 231, 215));
+            dirWorkersTabBtn.setForeground(COFFEE);
+            dirWorkersTabBtn.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        } else {
+            dirWorkersTabBtn.setBackground(COFFEE);
+            dirWorkersTabBtn.setForeground(CREAM);
+            dirWorkersTabBtn.setBorder(BorderFactory.createLineBorder(new Color(35, 20, 15), 1));
+            dirResidentsTabBtn.setBackground(new Color(242, 231, 215));
+            dirResidentsTabBtn.setForeground(COFFEE);
+            dirResidentsTabBtn.setBorder(BorderFactory.createLineBorder(LINE, 1));
+        }
     }
 
     // ==========================================
@@ -935,8 +1583,596 @@ public class AdminDashboard extends JFrame {
     }
 
     // ==========================================
+    // REGISTRATION HANDLERS
+    // ==========================================
+    private void registerResident() {
+        String name = regResNameField.getText().trim();
+        String email = regResEmailField.getText().trim().toLowerCase();
+        String phone = regResPhoneField.getText().trim();
+        String apt = regResAptField.getText().trim();
+        String pass = new String(regResPassField.getPassword()).trim();
+        String vehicle = regResVehicleField.getText().trim();
+        String parking = regResParkingField.getText().trim();
+
+        if (name.isEmpty() || email.isEmpty() || phone.isEmpty() || apt.isEmpty() || pass.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please fill in all required fields marked with *.", "Missing Information", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (!email.contains("@") || !email.contains(".")) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid email address.", "Invalid Email", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try (Connection con = DBConnection.getConnection()) {
+            if (con == null) return;
+
+            // Check email uniqueness across all tables
+            String checkSql = "SELECT 'resident' FROM residents WHERE lower(email) = ? " +
+                              "UNION SELECT 'worker' FROM workers WHERE lower(email) = ? " +
+                              "UNION SELECT 'admin' FROM admins WHERE lower(email) = ?";
+            try (PreparedStatement ps = con.prepareStatement(checkSql)) {
+                ps.setString(1, email);
+                ps.setString(2, email);
+                ps.setString(3, email);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        JOptionPane.showMessageDialog(this, "The email '" + email + "' is already registered in the system.\nPlease use a unique email.", "Email Already Exists", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                }
+            }
+
+            String insSql = "INSERT INTO residents (full_name, email, phone, apartment_no, password, vehicle_no, parking_slot) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?)";
+            try (PreparedStatement ps = con.prepareStatement(insSql, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setString(1, name);
+                ps.setString(2, email);
+                ps.setString(3, phone);
+                ps.setString(4, apt);
+                ps.setString(5, pass);
+                ps.setString(6, vehicle.isEmpty() ? null : vehicle);
+                ps.setString(7, parking.isEmpty() ? null : parking);
+
+                int rows = ps.executeUpdate();
+                if (rows > 0) {
+                    int newResId = 0;
+                    try (ResultSet gk = ps.getGeneratedKeys()) {
+                        if (gk.next()) newResId = gk.getInt(1);
+                    }
+
+                    if (!parking.isEmpty() && newResId > 0) {
+                        try (PreparedStatement pps = con.prepareStatement(
+                                "INSERT INTO parking (slot_number, parking_type, status, resident_id) " +
+                                "VALUES (?, 'RESIDENT', 'OCCUPIED', ?) " +
+                                "ON CONFLICT (slot_number) DO UPDATE SET resident_id = EXCLUDED.resident_id, status = 'OCCUPIED'")) {
+                            pps.setString(1, parking);
+                            pps.setInt(2, newResId);
+                            pps.executeUpdate();
+                        } catch (Exception ignored) {}
+                    }
+
+                    JOptionPane.showMessageDialog(this,
+                            "Resident registered successfully!\n\n" +
+                            "Name: " + name + "\n" +
+                            "Apartment: " + apt + "\n" +
+                            "Login Email: " + email + "\n" +
+                            (newResId > 0 ? "Resident ID: #" + newResId : ""),
+                            "Registration Successful", JOptionPane.INFORMATION_MESSAGE);
+
+                    clearResidentForm();
+                    loadOverviewData();
+                    loadDirectoryData();
+                }
+            }
+        } catch (Exception ex) {
+            LoginFrame.showDbError(ex);
+        }
+    }
+
+    private void clearResidentForm() {
+        regResNameField.setText("");
+        regResEmailField.setText("");
+        regResPhoneField.setText("");
+        regResAptField.setText("");
+        regResPassField.setText("");
+        regResVehicleField.setText("");
+        regResParkingField.setText("");
+    }
+
+    private void registerWorker() {
+        String name = regWorkerNameField.getText().trim();
+        String email = regWorkerEmailField.getText().trim().toLowerCase();
+        String phone = regWorkerPhoneField.getText().trim();
+        String type = (String) regWorkerTypeCombo.getSelectedItem();
+        String pass = new String(regWorkerPassField.getPassword()).trim();
+
+        if (name.isEmpty() || email.isEmpty() || phone.isEmpty() || pass.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please fill in all required fields marked with *.", "Missing Information", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (!email.contains("@") || !email.contains(".")) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid email address.", "Invalid Email", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try (Connection con = DBConnection.getConnection()) {
+            if (con == null) return;
+
+            // Check email uniqueness across all tables
+            String checkSql = "SELECT 'resident' FROM residents WHERE lower(email) = ? " +
+                              "UNION SELECT 'worker' FROM workers WHERE lower(email) = ? " +
+                              "UNION SELECT 'admin' FROM admins WHERE lower(email) = ?";
+            try (PreparedStatement ps = con.prepareStatement(checkSql)) {
+                ps.setString(1, email);
+                ps.setString(2, email);
+                ps.setString(3, email);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        JOptionPane.showMessageDialog(this, "The email '" + email + "' is already registered in the system.\nPlease use a unique email.", "Email Already Exists", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                }
+            }
+
+            String insSql = "INSERT INTO workers (full_name, email, phone, worker_type, password) VALUES (?, ?, ?, ?, ?)";
+            try (PreparedStatement ps = con.prepareStatement(insSql, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setString(1, name);
+                ps.setString(2, email);
+                ps.setString(3, phone);
+                ps.setString(4, type);
+                ps.setString(5, pass);
+
+                int rows = ps.executeUpdate();
+                if (rows > 0) {
+                    int newWorkerId = 0;
+                    try (ResultSet gk = ps.getGeneratedKeys()) {
+                        if (gk.next()) newWorkerId = gk.getInt(1);
+                    }
+
+                    JOptionPane.showMessageDialog(this,
+                            "Worker registered successfully!\n\n" +
+                            "Name: " + name + "\n" +
+                            "Specialty: " + type + "\n" +
+                            "Login Email: " + email + "\n" +
+                            (newWorkerId > 0 ? "Worker ID: #" + newWorkerId : "") + "\n\n" +
+                            "Worker is now active and ready for maintenance ticket assignment.",
+                            "Registration Successful", JOptionPane.INFORMATION_MESSAGE);
+
+                    clearWorkerForm();
+                    loadOverviewData();
+                    loadComplaintsData();
+                    loadDirectoryData();
+                }
+            }
+        } catch (Exception ex) {
+            LoginFrame.showDbError(ex);
+        }
+    }
+
+    private void clearWorkerForm() {
+        regWorkerNameField.setText("");
+        regWorkerEmailField.setText("");
+        regWorkerPhoneField.setText("");
+        regWorkerTypeCombo.setSelectedIndex(0);
+        regWorkerPassField.setText("");
+    }
+
+    // ==========================================
+    // DIRECTORY HANDLERS & CRUD
+    // ==========================================
+    private void loadDirectoryData() {
+        residentsModel.setRowCount(0);
+        workersModel.setRowCount(0);
+
+        int resCount = 0;
+        try (Connection con = DBConnection.getConnection()) {
+            if (con == null) return;
+
+            String resSql = "SELECT resident_id, full_name, apartment_no, email, phone, vehicle_no, parking_slot, created_at::DATE AS reg_date " +
+                            "FROM residents ORDER BY apartment_no ASC, resident_id ASC";
+            try (Statement st = con.createStatement();
+                 ResultSet rs = st.executeQuery(resSql)) {
+                while (rs.next()) {
+                    resCount++;
+                    java.sql.Date d = rs.getDate("reg_date");
+                    residentsModel.addRow(new Object[]{
+                            rs.getInt("resident_id"),
+                            rs.getString("full_name"),
+                            rs.getString("apartment_no"),
+                            rs.getString("email"),
+                            rs.getString("phone") != null ? rs.getString("phone") : "-",
+                            rs.getString("vehicle_no") != null ? rs.getString("vehicle_no") : "-",
+                            rs.getString("parking_slot") != null ? rs.getString("parking_slot") : "-",
+                            d != null ? d.toString() : "-"
+                    });
+                }
+            }
+            residentsCountSummary.setText("Total Residents: " + resCount + " | Double-click any resident row to view / edit profile");
+            if (dirResidentsTabBtn != null) {
+                dirResidentsTabBtn.setText("👥 Residents Directory (" + resCount + ")");
+            }
+
+            // Load distinct roles for filter combo
+            if (workerRoleFilterCombo != null) {
+                String curSelected = (String) workerRoleFilterCombo.getSelectedItem();
+                workerRoleFilterCombo.removeAllItems();
+                workerRoleFilterCombo.addItem("All Roles");
+                try (Statement st = con.createStatement();
+                     ResultSet rs = st.executeQuery("SELECT DISTINCT worker_type FROM workers WHERE worker_type IS NOT NULL AND worker_type != '' ORDER BY worker_type")) {
+                    while (rs.next()) {
+                        workerRoleFilterCombo.addItem(rs.getString(1));
+                    }
+                }
+                if (curSelected != null) {
+                    workerRoleFilterCombo.setSelectedItem(curSelected);
+                }
+            }
+
+            // Load workers
+            int workerCount = 0;
+            String wSql = "SELECT w.worker_id, w.full_name, w.worker_type, w.email, w.phone, w.created_at::DATE AS join_date, " +
+                          "COUNT(CASE WHEN c.status IN ('ASSIGNED', 'IN_PROGRESS', 'IN PROGRESS') THEN 1 END) AS active_cnt, " +
+                          "COUNT(CASE WHEN c.status IN ('COMPLETED', 'RESOLVED') THEN 1 END) AS resolved_cnt " +
+                          "FROM workers w " +
+                          "LEFT JOIN complaints c ON w.worker_id = c.worker_id " +
+                          "GROUP BY w.worker_id, w.full_name, w.worker_type, w.email, w.phone, w.created_at " +
+                          "ORDER BY w.worker_id ASC";
+            try (Statement st = con.createStatement();
+                 ResultSet rs = st.executeQuery(wSql)) {
+                while (rs.next()) {
+                    workerCount++;
+                    java.sql.Date d = rs.getDate("join_date");
+                    workersModel.addRow(new Object[]{
+                            rs.getInt("worker_id"),
+                            rs.getString("full_name"),
+                            rs.getString("worker_type"),
+                            rs.getString("email"),
+                            rs.getString("phone") != null ? rs.getString("phone") : "-",
+                            rs.getInt("active_cnt"),
+                            rs.getInt("resolved_cnt"),
+                            d != null ? d.toString() : "-"
+                    });
+                }
+            }
+            workersCountSummary.setText("Total Workers: " + workerCount + " | Double-click any worker row to view / edit profile");
+            if (dirWorkersTabBtn != null) {
+                dirWorkersTabBtn.setText("🔧 Workers & Staff (" + workerCount + ")");
+            }
+
+        } catch (Exception ex) {
+            LoginFrame.showDbError(ex);
+        }
+    }
+
+    private void editSelectedResident() {
+        int viewRow = residentsTable.getSelectedRow();
+        if (viewRow < 0) {
+            JOptionPane.showMessageDialog(this, "Please select a resident from the table first.", "Select Resident", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        int modelRow = residentsTable.convertRowIndexToModel(viewRow);
+        int resId = (int) residentsModel.getValueAt(modelRow, 0);
+
+        String curName = "", curEmail = "", curPhone = "", curApt = "", curVehicle = "", curParking = "";
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT full_name, email, phone, apartment_no, vehicle_no, parking_slot FROM residents WHERE resident_id = ?")) {
+            ps.setInt(1, resId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    curName = rs.getString("full_name");
+                    curEmail = rs.getString("email");
+                    curPhone = rs.getString("phone") != null ? rs.getString("phone") : "";
+                    curApt = rs.getString("apartment_no");
+                    curVehicle = rs.getString("vehicle_no") != null ? rs.getString("vehicle_no") : "";
+                    curParking = rs.getString("parking_slot") != null ? rs.getString("parking_slot") : "";
+                }
+            }
+        } catch (Exception ex) {
+            LoginFrame.showDbError(ex);
+            return;
+        }
+
+        JTextField nameField = new JTextField(curName);
+        JTextField emailField = new JTextField(curEmail);
+        emailField.setEditable(false);
+        emailField.setBackground(new Color(245, 242, 237));
+        JTextField phoneField = new JTextField(curPhone);
+        JTextField aptField = new JTextField(curApt);
+        JTextField vehField = new JTextField(curVehicle);
+        JTextField parkField = new JTextField(curParking);
+        JPasswordField passField = new JPasswordField();
+
+        JPanel form = new JPanel(new GridLayout(0, 1, 4, 4));
+        form.setPreferredSize(new Dimension(380, 360));
+        form.add(new JLabel("Full Name *:"));
+        form.add(nameField);
+        form.add(new JLabel("Email Address (Primary Login ID - Read Only):"));
+        form.add(emailField);
+        form.add(new JLabel("Apartment Number *:"));
+        form.add(aptField);
+        form.add(new JLabel("Phone Number *:"));
+        form.add(phoneField);
+        form.add(new JLabel("Vehicle Number:"));
+        form.add(vehField);
+        form.add(new JLabel("Assigned Parking Slot:"));
+        form.add(parkField);
+        form.add(new JLabel("Reset Password (Leave blank to keep current):"));
+        form.add(passField);
+
+        int result = JOptionPane.showConfirmDialog(this, form, "Edit Resident Details — ID #" + resId, JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION) return;
+
+        String newName = nameField.getText().trim();
+        String newApt = aptField.getText().trim();
+        String newPhone = phoneField.getText().trim();
+        String newVeh = vehField.getText().trim();
+        String newPark = parkField.getText().trim();
+        String newPass = new String(passField.getPassword()).trim();
+
+        if (newName.isEmpty() || newApt.isEmpty() || newPhone.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Full name, apartment number, and phone number cannot be blank.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try (Connection con = DBConnection.getConnection()) {
+            String sql;
+            if (newPass.isEmpty()) {
+                sql = "UPDATE residents SET full_name = ?, phone = ?, apartment_no = ?, vehicle_no = ?, parking_slot = ? WHERE resident_id = ?";
+            } else {
+                sql = "UPDATE residents SET full_name = ?, phone = ?, apartment_no = ?, vehicle_no = ?, parking_slot = ?, password = ? WHERE resident_id = ?";
+            }
+
+            try (PreparedStatement ps = con.prepareStatement(sql)) {
+                ps.setString(1, newName);
+                ps.setString(2, newPhone);
+                ps.setString(3, newApt);
+                ps.setString(4, newVeh.isEmpty() ? null : newVeh);
+                ps.setString(5, newPark.isEmpty() ? null : newPark);
+                if (newPass.isEmpty()) {
+                    ps.setInt(6, resId);
+                } else {
+                    ps.setString(6, newPass);
+                    ps.setInt(7, resId);
+                }
+                ps.executeUpdate();
+            }
+
+            if (!newPark.isEmpty()) {
+                try (PreparedStatement pps = con.prepareStatement(
+                        "INSERT INTO parking (slot_number, parking_type, status, resident_id) " +
+                        "VALUES (?, 'RESIDENT', 'OCCUPIED', ?) " +
+                        "ON CONFLICT (slot_number) DO UPDATE SET resident_id = EXCLUDED.resident_id, status = 'OCCUPIED'")) {
+                    pps.setString(1, newPark);
+                    pps.setInt(2, resId);
+                    pps.executeUpdate();
+                } catch (Exception ignored) {}
+            }
+
+            JOptionPane.showMessageDialog(this, "Resident details updated successfully!");
+            loadDirectoryData();
+            loadOverviewData();
+        } catch (Exception ex) {
+            LoginFrame.showDbError(ex);
+        }
+    }
+
+    private void deleteSelectedResident() {
+        int viewRow = residentsTable.getSelectedRow();
+        if (viewRow < 0) {
+            JOptionPane.showMessageDialog(this, "Please select a resident to remove.", "Select Resident", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        int modelRow = residentsTable.convertRowIndexToModel(viewRow);
+        int resId = (int) residentsModel.getValueAt(modelRow, 0);
+        String resName = (String) residentsModel.getValueAt(modelRow, 1);
+        String apt = (String) residentsModel.getValueAt(modelRow, 2);
+
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Are you sure you want to remove resident '" + resName + "' (" + apt + ")?\n\n" +
+                "⚠️ WARNING: This will permanently delete this resident account\n" +
+                "along with all associated complaints, billing dues, and visitor passes.",
+                "Confirm Resident Removal",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+
+        if (confirm != JOptionPane.YES_OPTION) return;
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("DELETE FROM residents WHERE resident_id = ?")) {
+            ps.setInt(1, resId);
+            int rows = ps.executeUpdate();
+            if (rows > 0) {
+                JOptionPane.showMessageDialog(this, "Resident '" + resName + "' removed successfully.");
+                loadDirectoryData();
+                loadOverviewData();
+                loadComplaintsData();
+                loadBillingData();
+            }
+        } catch (Exception ex) {
+            LoginFrame.showDbError(ex);
+        }
+    }
+
+    private void editSelectedWorker() {
+        int viewRow = workersTable.getSelectedRow();
+        if (viewRow < 0) {
+            JOptionPane.showMessageDialog(this, "Please select a worker from the table first.", "Select Worker", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        int modelRow = workersTable.convertRowIndexToModel(viewRow);
+        int workerId = (int) workersModel.getValueAt(modelRow, 0);
+
+        String curName = "", curEmail = "", curPhone = "", curType = "";
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement("SELECT full_name, email, phone, worker_type FROM workers WHERE worker_id = ?")) {
+            ps.setInt(1, workerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    curName = rs.getString("full_name");
+                    curEmail = rs.getString("email");
+                    curPhone = rs.getString("phone") != null ? rs.getString("phone") : "";
+                    curType = rs.getString("worker_type") != null ? rs.getString("worker_type") : "";
+                }
+            }
+        } catch (Exception ex) {
+            LoginFrame.showDbError(ex);
+            return;
+        }
+
+        JTextField nameField = new JTextField(curName);
+        JTextField emailField = new JTextField(curEmail);
+        emailField.setEditable(false);
+        emailField.setBackground(new Color(245, 242, 237));
+        JTextField phoneField = new JTextField(curPhone);
+        JComboBox<String> typeCombo = new JComboBox<>(new String[] {
+                "Electrician", "Plumber", "Security", "Cleaning / Housekeeping",
+                "Carpenter", "Gardener", "HVAC / AC Repair", "General Maintenance", "Other"
+        });
+        typeCombo.setEditable(true);
+        typeCombo.setSelectedItem(curType);
+        JPasswordField passField = new JPasswordField();
+
+        JPanel form = new JPanel(new GridLayout(0, 1, 4, 4));
+        form.setPreferredSize(new Dimension(380, 290));
+        form.add(new JLabel("Full Name *:"));
+        form.add(nameField);
+        form.add(new JLabel("Email Address (Staff Login ID - Read Only):"));
+        form.add(emailField);
+        form.add(new JLabel("Specialty / Trade Role *:"));
+        form.add(typeCombo);
+        form.add(new JLabel("Phone Number *:"));
+        form.add(phoneField);
+        form.add(new JLabel("Reset Password (Leave blank to keep current):"));
+        form.add(passField);
+
+        int result = JOptionPane.showConfirmDialog(this, form, "Edit Worker Details — ID #" + workerId, JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (result != JOptionPane.OK_OPTION) return;
+
+        String newName = nameField.getText().trim();
+        String newType = typeCombo.getSelectedItem() != null ? typeCombo.getSelectedItem().toString().trim() : "";
+        String newPhone = phoneField.getText().trim();
+        String newPass = new String(passField.getPassword()).trim();
+
+        if (newName.isEmpty() || newType.isEmpty() || newPhone.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Full name, specialty, and phone number cannot be blank.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try (Connection con = DBConnection.getConnection()) {
+            String sql;
+            if (newPass.isEmpty()) {
+                sql = "UPDATE workers SET full_name = ?, phone = ?, worker_type = ? WHERE worker_id = ?";
+            } else {
+                sql = "UPDATE workers SET full_name = ?, phone = ?, worker_type = ?, password = ? WHERE worker_id = ?";
+            }
+
+            try (PreparedStatement ps = con.prepareStatement(sql)) {
+                ps.setString(1, newName);
+                ps.setString(2, newPhone);
+                ps.setString(3, newType);
+                if (newPass.isEmpty()) {
+                    ps.setInt(4, workerId);
+                } else {
+                    ps.setString(4, newPass);
+                    ps.setInt(5, workerId);
+                }
+                ps.executeUpdate();
+            }
+
+            JOptionPane.showMessageDialog(this, "Worker details updated successfully!");
+            loadDirectoryData();
+            loadOverviewData();
+            loadComplaintsData();
+        } catch (Exception ex) {
+            LoginFrame.showDbError(ex);
+        }
+    }
+
+    private void deleteSelectedWorker() {
+        int viewRow = workersTable.getSelectedRow();
+        if (viewRow < 0) {
+            JOptionPane.showMessageDialog(this, "Please select a worker to remove.", "Select Worker", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        int modelRow = workersTable.convertRowIndexToModel(viewRow);
+        int workerId = (int) workersModel.getValueAt(modelRow, 0);
+        String workerName = (String) workersModel.getValueAt(modelRow, 1);
+        String workerType = (String) workersModel.getValueAt(modelRow, 2);
+        int activeTasks = (int) workersModel.getValueAt(modelRow, 5);
+
+        String warnMsg = "Are you sure you want to remove worker '" + workerName + "' (" + workerType + ")?";
+        if (activeTasks > 0) {
+            warnMsg += "\n\n⚠️ NOTE: This worker currently has " + activeTasks + " active tasks.\n" +
+                        "Removing this worker will reset those complaints to 'PENDING'\n" +
+                        "so they can be reassigned.";
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                warnMsg,
+                "Confirm Worker Removal",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+        );
+
+        if (confirm != JOptionPane.YES_OPTION) return;
+
+        try (Connection con = DBConnection.getConnection()) {
+            con.setAutoCommit(false);
+            try {
+                // Revert any active complaints assigned to this worker to PENDING
+                try (PreparedStatement ps1 = con.prepareStatement(
+                        "UPDATE complaints SET worker_id = NULL, status = 'PENDING' " +
+                        "WHERE worker_id = ? AND status IN ('ASSIGNED', 'IN_PROGRESS', 'IN PROGRESS')")) {
+                    ps1.setInt(1, workerId);
+                    ps1.executeUpdate();
+                }
+
+                // Delete worker
+                try (PreparedStatement ps2 = con.prepareStatement("DELETE FROM workers WHERE worker_id = ?")) {
+                    ps2.setInt(1, workerId);
+                    ps2.executeUpdate();
+                }
+
+                con.commit();
+                JOptionPane.showMessageDialog(this, "Worker '" + workerName + "' removed successfully.");
+                loadDirectoryData();
+                loadOverviewData();
+                loadComplaintsData();
+            } catch (Exception ex) {
+                con.rollback();
+                throw ex;
+            } finally {
+                con.setAutoCommit(true);
+            }
+        } catch (Exception ex) {
+            LoginFrame.showDbError(ex);
+        }
+    }
+
+    // ==========================================
     // HELPER UI METHODS
     // ==========================================
+    private void styleField(JTextField field) {
+        field.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        field.setBackground(new Color(254, 252, 249));
+        field.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(LINE, 1),
+                BorderFactory.createEmptyBorder(5, 10, 5, 10)
+        ));
+    }
+
+    private JLabel createFormLabel(String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lbl.setForeground(new Color(90, 60, 45));
+        return lbl;
+    }
+
     private JPanel createMetricCard(String title, JLabel valueLabel, int x, int y, int width, int height) {
         JPanel card = new JPanel(null);
         card.setBounds(x, y, width, height);
@@ -999,6 +2235,18 @@ public class AdminDashboard extends JFrame {
                     g2.drawRoundRect(x + 1, y + 2, 16, 13, 3, 3);
                     g2.fillRect(x + 1, y + 5, 16, 3);
                     g2.fillRect(x + 3, y + 10, 4, 3);
+                } else if ("REGISTER".equals(type)) {
+                    g2.setStroke(new BasicStroke(1.8f));
+                    g2.drawOval(x + 1, y + 2, 6, 6);
+                    g2.drawArc(x, y + 9, 8, 7, 0, 180);
+                    g2.drawLine(x + 13, y + 4, x + 13, y + 12);
+                    g2.drawLine(x + 9, y + 8, x + 17, y + 8);
+                } else if ("DIRECTORY".equals(type)) {
+                    g2.setStroke(new BasicStroke(1.8f));
+                    g2.drawRoundRect(x + 1, y + 2, 16, 14, 2, 2);
+                    g2.drawOval(x + 4, y + 5, 3, 3);
+                    g2.drawLine(x + 9, y + 6, x + 14, y + 6);
+                    g2.drawLine(x + 4, y + 11, x + 14, y + 11);
                 } else if ("LOGOUT".equals(type)) {
                     g2.setStroke(new BasicStroke(1.8f));
                     g2.drawLine(x + 9, y + 2, x + 3, y + 2);
