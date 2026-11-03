@@ -1,9 +1,8 @@
 package view;
 
-import database.DBConnection;
+import controller.AuthController;
 import javax.swing.*;
 import java.awt.*;
-import java.sql.*;
 
 public class LoginFrame extends JFrame {
     private final JTextField emailField = new JTextField();
@@ -83,55 +82,16 @@ public class LoginFrame extends JFrame {
         setVisible(true);
     }
 
-    // Authenticates resident, worker, or admin login against database
+    private final AuthController authController = new AuthController();
+
+    // Authenticates resident, worker, or admin login via AuthController
     private void authenticate() {
-        String email = emailField.getText().trim().toLowerCase();
+        String email = emailField.getText().trim();
         String password = new String(passwordField.getPassword());
-
-        if (email.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter both email and password.");
-            return;
-        }
-
-        String table;
-        String idCol;
-        if (residentBtn.isSelected()) {
-            table = "residents";
-            idCol = "resident_id";
-        } else if (workerBtn.isSelected()) {
-            table = "workers";
-            idCol = "worker_id";
-        } else {
-            table = "admins";
-            idCol = "admin_id";
-        }
-
-        String sql = "SELECT " + idCol + ", full_name, password FROM " + table + " WHERE lower(email) = ?";
-
-        try (Connection con = DBConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-
-            ps.setString(1, email);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next() && password.equals(rs.getString("password"))) {
-                    int id = rs.getInt(idCol);
-                    String name = rs.getString("full_name");
-
-                    if (residentBtn.isSelected()) {
-                        new ResidentDashboard(id, name);
-                    } else if (workerBtn.isSelected()) {
-                        new WorkerDashboard(id, name);
-                    } else {
-                        new AdminDashboard(id, name);
-                    }
-                    dispose();
-                } else {
-                    JOptionPane.showMessageDialog(this, "Invalid email or password.");
-                }
-            }
-        } catch (Exception ex) {
-            showDbError(ex);
-        }
+        AuthController.Role role = residentBtn.isSelected()
+                ? AuthController.Role.RESIDENT
+                : (workerBtn.isSelected() ? AuthController.Role.WORKER : AuthController.Role.ADMIN);
+        authController.login(email, password, role, this);
     }
 
     // Helper to display error popup
@@ -143,14 +103,11 @@ public class LoginFrame extends JFrame {
 
     // Helper to create themed buttons
     public static JButton button(String text) {
-        JButton b = new JButton(text);
-        b.setBackground(AMBER);
-        b.setForeground(Color.WHITE);
-        b.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        b.setFocusPainted(false);
-        b.setBorderPainted(false);
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        return b;
+        return new RoundedButton(text, AMBER, Color.WHITE, 22);
+    }
+
+    public static JButton button(String text, Color bg, Color fg, int radius) {
+        return new RoundedButton(text, bg, fg, radius);
     }
 
     private static void addLabel(JPanel p, String s, int x, int y) {

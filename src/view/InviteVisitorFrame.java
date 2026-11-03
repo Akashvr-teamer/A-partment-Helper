@@ -1,10 +1,10 @@
 package view;
 
-import database.DBConnection;
-import util.CodeGenerator;
+import controller.ResidentController;
+
 import javax.swing.*;
 import java.awt.*;
-import java.sql.*;
+import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -12,6 +12,7 @@ import java.util.Date;
 public class InviteVisitorFrame extends JFrame {
     private final int residentId;
     private final ResidentDashboard dashboard;
+    private final ResidentController residentController = new ResidentController();
 
     private final JTextField nameField = new JTextField();
     private final JTextField phoneField = new JTextField();
@@ -151,25 +152,13 @@ public class InviteVisitorFrame extends JFrame {
             return;
         }
 
-        // Generate 8-character code and SHA-256 hash
-        String passCode = CodeGenerator.generateCode();
-        String passHash = CodeGenerator.sha256(passCode);
+        try {
+            Timestamp validFrom = new Timestamp(startCal.getTimeInMillis());
+            Timestamp validUntil = new Timestamp(endCal.getTimeInMillis());
 
-        String sql = "INSERT INTO visitors(resident_id, visitor_name, phone, has_vehicle, vehicle_no, access_hash, valid_from, valid_until, status) " +
-                     "VALUES(?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')";
-
-        try (Connection con = DBConnection.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
-
-            ps.setInt(1, residentId);
-            ps.setString(2, name);
-            ps.setString(3, phone);
-            ps.setBoolean(4, hasVehicle);
-            ps.setString(5, hasVehicle ? vehicle : null);
-            ps.setString(6, passHash);
-            ps.setTimestamp(7, new Timestamp(startCal.getTimeInMillis()));
-            ps.setTimestamp(8, new Timestamp(endCal.getTimeInMillis()));
-            ps.executeUpdate();
+            String passCode = residentController.createVisitorPass(
+                    residentId, name, phone, hasVehicle, vehicle, validFrom, validUntil
+            );
 
             // Refresh parent resident dashboard
             if (dashboard != null) {

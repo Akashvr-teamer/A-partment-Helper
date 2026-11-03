@@ -1,20 +1,23 @@
 package view;
 
-import database.DBConnection;
+import controller.ResidentController;
+import model.Complaint;
+import model.Payment;
+import model.Resident;
+import model.ResidentMetrics;
+import model.Visitor;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.sql.*;
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
-import java.util.Calendar;
-import java.util.Date;
+import java.util.List;
 
 public class ResidentDashboard extends JFrame {
     private final int residentId;
     private final String residentName;
+    private final ResidentController residentController = new ResidentController();
 
     // CardLayout to display different views within the SAME window
     private final CardLayout cardLayout = new CardLayout();
@@ -578,64 +581,41 @@ public class ResidentDashboard extends JFrame {
     }
 
     // ==========================================
-    // DATABASE METHODS
+    // CONTROLLER DELEGATED METHODS
     // ==========================================
 
     // Loads Overview metrics and recent visitors
     public void loadDashboardData() {
         overviewStatus.setText("Updating...");
-        try (Connection con = DBConnection.getConnection()) {
-
+        try {
             // 1. Fetch parking slot
-            String slotSql = "SELECT parking_slot FROM residents WHERE resident_id = ?";
-            try (PreparedStatement ps = con.prepareStatement(slotSql)) {
-                ps.setInt(1, residentId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next() && rs.getString(1) != null) {
-                        parkingVal.setText(rs.getString(1));
-                    } else {
-                        parkingVal.setText("Not assigned");
-                    }
-                }
+            Resident profile = residentController.getProfile(residentId);
+            if (profile != null && profile.getParkingSlot() != null) {
+                parkingVal.setText(profile.getParkingSlot());
+            } else {
+                parkingVal.setText("Not assigned");
             }
 
             // 2. Fetch visitor records
             visitorModel.setRowCount(0);
-            int count = 0;
-            String visitorSql = "SELECT visitor_id, visitor_name, phone, COALESCE(parking_slot, '—') AS slot, status, valid_until " +
-                                "FROM visitors WHERE resident_id = ? ORDER BY visitor_id DESC";
-            try (PreparedStatement ps = con.prepareStatement(visitorSql)) {
-                ps.setInt(1, residentId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        String st = rs.getString("status");
-                        if (st != null) st = st.replace("_", " ");
-                        visitorModel.addRow(new Object[] {
-                            rs.getInt("visitor_id"),
-                            rs.getString("visitor_name"),
-                            rs.getString("phone"),
-                            rs.getString("slot"),
-                            st,
-                            rs.getTimestamp("valid_until")
-                        });
-                        count++;
-                    }
-                }
+            List<Visitor> visitors = residentController.getRecentVisitors(residentId);
+            for (Visitor v : visitors) {
+                String st = v.getStatus();
+                if (st != null) st = st.replace("_", " ");
+                visitorModel.addRow(new Object[] {
+                    v.getVisitorId(),
+                    v.getVisitorName(),
+                    v.getPhone(),
+                    v.getParkingSlot() != null ? v.getParkingSlot() : "—",
+                    st,
+                    v.getValidUntil()
+                });
             }
-            visitorsVal.setText(String.valueOf(count));
+            visitorsVal.setText(String.valueOf(visitors.size()));
 
             // 3. Fetch maintenance due amount
-            String dueSql = "SELECT COALESCE(SUM(amount), 0) FROM payments " +
-                            "WHERE resident_id = ? AND status IN ('PENDING', 'OVERDUE')";
-            try (PreparedStatement ps = con.prepareStatement(dueSql)) {
-                ps.setInt(1, residentId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        double due = rs.getDouble(1);
-                        maintenanceVal.setText("₹" + String.format("%.0f", due));
-                    }
-                }
-            }
+            ResidentMetrics metrics = residentController.getMetrics(residentId);
+            maintenanceVal.setText("₹" + String.format("%.0f", metrics.getTotalDues()));
 
             overviewStatus.setText("Updated just now");
         } catch (Exception ex) {
@@ -655,47 +635,17 @@ public class ResidentDashboard extends JFrame {
             return;
         }
 
-        try (Connection con = DBConnection.getConnection()) {
-            if (con == null) {
-                JOptionPane.showMessageDialog(this, "Database connection not available. Please verify your connection.", "Connection Error", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            Integer autoWorkerId = AdminDashboard.findWorkerForComplaint(con, category);
-
-            String sql;
-            if (autoWorkerId != null) {
-                sql = "INSERT INTO complaints (resident_id, title, description, category, status, worker_id) VALUES (?, ?, ?, ?, 'ASSIGNED', ?)";
+        try {
+            boolean ok = residentController.fileComplaint(residentId, title, category, description);
+            if (ok) {
+                JOptionPane.showMessageDialog(this,
+                        "Complaint submitted successfully!\nOur maintenance team will process it promptly.",
+                        "Complaint Registered", JOptionPane.INFORMATION_MESSAGE);
+                complaintTitleField.setText("");
+                complaintDescArea.setText("");
+                loadComplaints();
             } else {
-                sql = "INSERT INTO complaints (resident_id, title, description, category, status) VALUES (?, ?, ?, ?, 'PENDING')";
-            }
-
-            try (PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                ps.setInt(1, residentId);
-                ps.setString(2, title);
-                ps.setString(3, description);
-                ps.setString(4, category);
-                if (autoWorkerId != null) {
-                    ps.setInt(5, autoWorkerId);
-                }
-
-                int rows = ps.executeUpdate();
-                if (rows > 0) {
-                    int generatedId = -1;
-                    try (ResultSet gk = ps.getGeneratedKeys()) {
-                        if (gk.next()) {
-                            generatedId = gk.getInt(1);
-                        }
-                    }
-
-                    String notice = autoWorkerId != null
-                            ? "Complaint #" + generatedId + " submitted successfully!\nAutomatically assigned to an available technician."
-                            : "Complaint #" + generatedId + " submitted successfully!\nWill be assigned as soon as a technician becomes available.";
-                    JOptionPane.showMessageDialog(this, notice, "Complaint Registered", JOptionPane.INFORMATION_MESSAGE);
-                    complaintTitleField.setText("");
-                    complaintDescArea.setText("");
-                    loadComplaints();
-                }
+                JOptionPane.showMessageDialog(this, "Failed to submit complaint.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -706,63 +656,38 @@ public class ResidentDashboard extends JFrame {
     // Loads complaints list sorted by ID
     private void loadComplaints() {
         complaintsModel.setRowCount(0);
-
-        String sql = "SELECT c.complaint_id, c.title, c.category, c.status, c.description, " +
-                     "c.created_at::DATE AS log_date, " +
-                     "COALESCE(w.full_name, 'Unassigned') AS worker_name " +
-                     "FROM complaints c " +
-                     "LEFT JOIN workers w ON c.worker_id = w.worker_id " +
-                     "WHERE c.resident_id = ? " +
-                     "ORDER BY c.complaint_id DESC";
-
         int totalCount = 0;
         int inProgCount = 0;
         int resolvedCount = 0;
         int pendingCount = 0;
 
-        try (Connection con = DBConnection.getConnection()) {
-            if (con == null) {
-                if (complaintsSummaryLabel != null) complaintsSummaryLabel.setText("Database connection unavailable.");
-                return;
-            }
-
-            try (PreparedStatement ps = con.prepareStatement(sql)) {
-                ps.setInt(1, residentId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        int id = rs.getInt("complaint_id");
-                        String title = rs.getString("title");
-                        String category = rs.getString("category");
-                        String worker = rs.getString("worker_name");
-                        String desc = rs.getString("description");
-                        java.sql.Date logDate = rs.getDate("log_date");
-                        String rawStatus = rs.getString("status");
-                        String displayStatus = rawStatus != null ? rawStatus.replace("_", " ") : "PENDING";
-
-                        totalCount++;
-                        if ("RESOLVED".equalsIgnoreCase(rawStatus) || "COMPLETED".equalsIgnoreCase(rawStatus)) {
-                            resolvedCount++;
-                        } else if ("IN_PROGRESS".equalsIgnoreCase(rawStatus) || "IN PROGRESS".equalsIgnoreCase(rawStatus)) {
-                            inProgCount++;
-                        } else {
-                            pendingCount++;
-                        }
-
-                        complaintsModel.addRow(new Object[]{
-                                id,
-                                title,
-                                category,
-                                worker,
-                                displayStatus,
-                                logDate != null ? logDate.toString() : "-",
-                                desc
-                        });
-                    }
+        try {
+            List<Complaint> list = residentController.getComplaints(residentId);
+            for (Complaint c : list) {
+                totalCount++;
+                String rawStatus = c.getStatus();
+                if ("RESOLVED".equalsIgnoreCase(rawStatus) || "COMPLETED".equalsIgnoreCase(rawStatus)) {
+                    resolvedCount++;
+                } else if ("IN_PROGRESS".equalsIgnoreCase(rawStatus) || "IN PROGRESS".equalsIgnoreCase(rawStatus)) {
+                    inProgCount++;
+                } else {
+                    pendingCount++;
                 }
+
+                complaintsModel.addRow(new Object[]{
+                        c.getComplaintId(),
+                        c.getTitle(),
+                        c.getCategory(),
+                        c.getWorkerName() != null ? c.getWorkerName() : "Unassigned",
+                        rawStatus != null ? rawStatus.replace("_", " ") : "PENDING",
+                        c.getCreatedAt() != null ? c.getCreatedAt().toString().substring(0, Math.min(10, c.getCreatedAt().toString().length())) : "-",
+                        c.getDescription()
+                });
             }
 
             if (complaintsSummaryLabel != null) {
-                complaintsSummaryLabel.setText(String.format("Total: %d | Resolved: %d | In Progress: %d | Pending: %d", totalCount, resolvedCount, inProgCount, pendingCount));
+                complaintsSummaryLabel.setText(String.format("Total: %d | Resolved: %d | In Progress: %d | Pending: %d",
+                        totalCount, resolvedCount, inProgCount, pendingCount));
             }
 
         } catch (Exception e) {
@@ -776,59 +701,41 @@ public class ResidentDashboard extends JFrame {
     // Loads payments list and updates stat cards
     private void loadPayments() {
         paymentsModel.setRowCount(0);
-
-        String sql = "SELECT payment_id, month_year, amount, due_date, payment_date, payment_method, status " +
-                     "FROM payments WHERE resident_id = ? ORDER BY payment_id DESC";
-
         double totalPendingAmount = 0.0;
         double overdueAmount = 0.0;
         int paidCount = 0;
 
-        try (Connection con = DBConnection.getConnection()) {
-            if (con == null) return;
+        try {
+            List<Payment> list = residentController.getPayments(residentId);
+            LocalDate today = LocalDate.now();
 
-            try (PreparedStatement ps = con.prepareStatement(sql)) {
-                ps.setInt(1, residentId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    LocalDate today = LocalDate.now();
+            for (Payment p : list) {
+                boolean isPaid = "PAID".equalsIgnoreCase(p.getStatus());
+                String tracking;
 
-                    while (rs.next()) {
-                        int id = rs.getInt("payment_id");
-                        String monthYear = rs.getString("month_year");
-                        double amount = rs.getDouble("amount");
-                        java.sql.Date dueDate = rs.getDate("due_date");
-                        java.sql.Date paymentDate = rs.getDate("payment_date");
-                        String method = rs.getString("payment_method");
-                        String status = rs.getString("status");
-
-                        String tracking;
-                        boolean isPaid = "PAID".equalsIgnoreCase(status);
-
-                        if (isPaid) {
-                            tracking = "PAID";
-                            paidCount++;
-                        } else {
-                            totalPendingAmount += amount;
-                            if (dueDate != null && today.isAfter(dueDate.toLocalDate())) {
-                                tracking = "⚠️ OVERDUE";
-                                overdueAmount += amount;
-                            } else {
-                                tracking = "Upcoming";
-                            }
-                        }
-
-                        paymentsModel.addRow(new Object[]{
-                                id,
-                                monthYear,
-                                String.format("%.2f", amount),
-                                dueDate != null ? dueDate.toString() : "-",
-                                paymentDate != null ? paymentDate.toString() : "-",
-                                method != null ? method : "-",
-                                status != null ? status : "PENDING",
-                                tracking
-                        });
+                if (isPaid) {
+                    tracking = "PAID";
+                    paidCount++;
+                } else {
+                    totalPendingAmount += p.getAmount();
+                    if (p.getDueDate() != null && today.isAfter(p.getDueDate().toLocalDate())) {
+                        tracking = "⚠️ OVERDUE";
+                        overdueAmount += p.getAmount();
+                    } else {
+                        tracking = "Upcoming";
                     }
                 }
+
+                paymentsModel.addRow(new Object[]{
+                        p.getPaymentId(),
+                        p.getMonthYear(),
+                        String.format("%.2f", p.getAmount()),
+                        p.getDueDate() != null ? p.getDueDate().toString() : "-",
+                        p.getPaymentDate() != null ? p.getPaymentDate().toString() : "-",
+                        p.getPaymentMethod() != null ? p.getPaymentMethod() : "-",
+                        p.getStatus() != null ? p.getStatus() : "PENDING",
+                        tracking
+                });
             }
 
             if (totalDuesLbl != null) totalDuesLbl.setText(String.format("₹%.0f", totalPendingAmount));
@@ -871,31 +778,21 @@ public class ResidentDashboard extends JFrame {
 
         if (method == null) return; // Cancelled
 
-        String updateSql = "UPDATE payments SET status = 'PAID', payment_date = CURRENT_DATE, payment_method = ? WHERE payment_id = ?";
+        try {
+            boolean ok = residentController.payBill(paymentId, method);
+            if (ok) {
+                JOptionPane.showMessageDialog(this,
+                        "Payment Successful!\n\n" +
+                        "Month: " + monthYear + "\n" +
+                        "Amount: ₹" + amountStr + "\n" +
+                        "Method: " + method,
+                        "Payment Receipt",
+                        JOptionPane.INFORMATION_MESSAGE);
 
-        try (Connection con = DBConnection.getConnection()) {
-            if (con == null) {
-                JOptionPane.showMessageDialog(this, "Database connection failed. Unable to record payment.", "Error", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            try (PreparedStatement ps = con.prepareStatement(updateSql)) {
-                ps.setString(1, method);
-                ps.setInt(2, paymentId);
-
-                int rows = ps.executeUpdate();
-                if (rows > 0) {
-                    JOptionPane.showMessageDialog(this,
-                            "Payment Successful!\n\n" +
-                            "Month: " + monthYear + "\n" +
-                            "Amount: ₹" + amountStr + "\n" +
-                            "Method: " + method,
-                            "Payment Receipt",
-                            JOptionPane.INFORMATION_MESSAGE);
-
-                    loadPayments();
-                    loadDashboardData();
-                }
+                loadPayments();
+                loadDashboardData();
+            } else {
+                JOptionPane.showMessageDialog(this, "Payment update failed.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         } catch (Exception e) {
             e.printStackTrace();
